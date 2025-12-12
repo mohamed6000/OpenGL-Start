@@ -1,0 +1,7 @@
+.vs
+test.cpp
+*.exe
+*.ilk
+*.obj
+*.pdb
+checks.bat
