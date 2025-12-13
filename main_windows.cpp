@@ -9,12 +9,69 @@
 
 #if COMPILER_CL
 #pragma comment(lib, "Gdi32.lib")
-#pragma comment(lib, "Opengl32.lib") // @Todo: Should I load the gl functions dynamically?
 #endif
 
-#include <GL/GL.h>
+#define GL_PROC(ident) CONCAT(ident,PROC)
 
-bool opengl_init(HWND window) {
+
+typedef unsigned int  GLenum;
+typedef unsigned char GLubyte;
+typedef unsigned int  GLbitfield;
+typedef float         GLclampf;
+
+#define GL_VENDOR     0x1F00
+#define GL_RENDERER   0x1F01
+#define GL_VERSION    0x1F02
+#define GL_EXTENSIONS 0x1F03
+
+#define GL_COLOR_BUFFER_BIT 0x00004000
+
+
+typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
+typedef void APIENTRY GL_PROC(glClear) (GLbitfield mask);
+typedef void APIENTRY GL_PROC(glClearColor) (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
+
+GL_PROC(glGetString) *glGetString;
+GL_PROC(glClear) *glClear;
+GL_PROC(glClearColor) *glClearColor;
+
+
+// WGL.
+typedef HGLRC WINAPI GL_PROC(wglCreateContext)(HDC);
+typedef BOOL  WINAPI GL_PROC(wglDeleteContext)(HGLRC);
+typedef BOOL  WINAPI GL_PROC(wglMakeCurrent)(HDC, HGLRC);
+
+GL_PROC(wglCreateContext) *W32_wglCreateContext;
+GL_PROC(wglDeleteContext) *W32_wglDeleteContext;
+GL_PROC(wglMakeCurrent)   *W32_wglMakeCurrent;
+
+
+#define W32_LOAD_GL_PROC(ident) ident = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
+#define W32_LOAD_WGL_PROC(ident) CONCAT(W32_, ident) = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
+
+
+HGLRC gl_context;
+
+void gl_load(void) {
+    HMODULE gl_module = LoadLibraryA("OpenGL32.dll");
+    if (!gl_module) {
+        write_string("Failed to load Opengl32.\n", true);
+        return;
+    }
+
+    W32_LOAD_WGL_PROC(wglCreateContext);
+    W32_LOAD_WGL_PROC(wglDeleteContext);
+    W32_LOAD_WGL_PROC(wglMakeCurrent);
+
+
+    W32_LOAD_GL_PROC(glGetString);
+    W32_LOAD_GL_PROC(glClear);
+    W32_LOAD_GL_PROC(glClearColor);
+
+    FreeLibrary(gl_module);
+}
+
+bool set_pixel_format(HWND window) {
     HDC hdc = GetDC(window);
 
     PIXELFORMATDESCRIPTOR pixel_format = {};
@@ -40,13 +97,27 @@ bool opengl_init(HWND window) {
         return false;
     }
 
-    HGLRC gl_context = wglCreateContext(hdc);
-    if (gl_context == null) {
-        write_string("Failed to wglCreateContext.\n", true);
-        return false;
+    ReleaseDC(window, hdc);
+
+    return true;
+}
+
+bool opengl_init(HWND window) {
+    set_pixel_format(window);
+
+    HDC hdc = GetDC(window);
+
+    if (!gl_context) {
+        gl_load();
+
+        gl_context = W32_wglCreateContext(hdc);
+        if (gl_context == null) {
+            write_string("Failed to wglCreateContext.\n", true);
+            return false;
+        }
     }
 
-    if (!wglMakeCurrent(hdc, gl_context)) {
+    if (!W32_wglMakeCurrent(hdc, gl_context)) {
         write_string("Failed to wglMakeCurrent.\n", true);
         return false;
     }
@@ -113,6 +184,14 @@ int main(void) {
 
     opengl_init(hwnd);
 
+    const GLubyte *gl_version  = glGetString(GL_VERSION);
+    const GLubyte *gl_vendor   = glGetString(GL_VENDOR);
+    const GLubyte *gl_renderer = glGetString(GL_RENDERER);
+    
+    print("OpenGL Version:  %s\n", gl_version);
+    print("OpenGL Vendor:   %s\n", gl_vendor);
+    print("OpenGL Renderer: %s\n", gl_renderer);
+
     // Display the window.
     UpdateWindow(hwnd);
     ShowWindow(hwnd, SW_SHOW);
@@ -127,6 +206,7 @@ int main(void) {
         }
 
         glClear(GL_COLOR_BUFFER_BIT);
+        // glClearColor(0.2f, 0.72f, 0.38f, 1);
         glClearColor(0.2f, 0.38f, 0.72f, 1);
 
         BOOL ok = SwapBuffers(hdc);
@@ -136,7 +216,8 @@ int main(void) {
     }
 
     ReleaseDC(hwnd, hdc);
-    wglMakeCurrent(null, null);
+    W32_wglMakeCurrent(null, null);
+    W32_wglDeleteContext(gl_context);
 
     return 0;
 }
