@@ -9,7 +9,52 @@
 
 #if COMPILER_CL
 #pragma comment(lib, "Gdi32.lib")
+#pragma comment(lib, "Opengl32.lib") // @Todo: Should I load the gl functions dynamically?
 #endif
+
+#include <GL/GL.h>
+
+bool opengl_init(HWND window) {
+    HDC hdc = GetDC(window);
+
+    PIXELFORMATDESCRIPTOR pixel_format = {};
+    pixel_format.nSize        = sizeof(PIXELFORMATDESCRIPTOR);
+    pixel_format.nVersion     = 1;
+    pixel_format.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pixel_format.iPixelType   = PFD_TYPE_RGBA;
+    pixel_format.cColorBits   = 24;
+    pixel_format.cAlphaBits   = 8;
+    pixel_format.cDepthBits   = 24;
+    pixel_format.cStencilBits = 8;
+    pixel_format.iLayerType   = PFD_MAIN_PLANE;
+
+    int pixel_format_index = ChoosePixelFormat(hdc, &pixel_format);
+    if (!pixel_format_index) {
+        write_string("Failed to ChoosePixelFormat.\n", true);
+        return false;
+    }
+
+    BOOL success = SetPixelFormat(hdc, pixel_format_index, &pixel_format);
+    if (success == FALSE) {
+        write_string("Failed to SetPixelFormat.\n", true);
+        return false;
+    }
+
+    HGLRC gl_context = wglCreateContext(hdc);
+    if (gl_context == null) {
+        write_string("Failed to wglCreateContext.\n", true);
+        return false;
+    }
+
+    if (!wglMakeCurrent(hdc, gl_context)) {
+        write_string("Failed to wglMakeCurrent.\n", true);
+        return false;
+    }
+
+    ReleaseDC(window, hdc);
+
+    return true;
+}
 
 bool should_quit = false;
 
@@ -46,7 +91,7 @@ int main(void) {
 
     // Register the window class.
     if (RegisterClassExW(&wc) == 0) {
-        write_string("RegisterClassExW returned 0.\n");
+        write_string("RegisterClassExW returned 0.\n", true);
         return 0;
     }
 
@@ -62,13 +107,17 @@ int main(void) {
                                 null);
 
     if (hwnd == null) {
-        write_string("CreateWindowExW returned 0.\n");
+        write_string("CreateWindowExW returned 0.\n", true);
         return 0;
     }
+
+    opengl_init(hwnd);
 
     // Display the window.
     UpdateWindow(hwnd);
     ShowWindow(hwnd, SW_SHOW);
+
+    HDC hdc = GetDC(hwnd);
 
     while (!should_quit) {
         MSG msg;
@@ -76,7 +125,18 @@ int main(void) {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
+
+        glClear(GL_COLOR_BUFFER_BIT);
+        glClearColor(0.2f, 0.38f, 0.72f, 1);
+
+        BOOL ok = SwapBuffers(hdc);
+        if (ok == FALSE) {
+            write_string("Failed to SwapBuffers.\n", true);
+        }
     }
+
+    ReleaseDC(hwnd, hdc);
+    wglMakeCurrent(null, null);
 
     return 0;
 }
