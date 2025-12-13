@@ -7,6 +7,9 @@
 #define VC_EXTRALEAN
 #include <windows.h>
 
+#include "stb_image.h"
+
+
 #if COMPILER_CL
 #pragma comment(lib, "Gdi32.lib")
 #endif
@@ -15,16 +18,19 @@
 
 
 typedef unsigned int  GLenum;
-typedef unsigned char GLubyte;
 typedef unsigned int  GLbitfield;
 typedef int           GLint;
 typedef int           GLsizei;
+typedef unsigned char GLubyte;
+typedef unsigned int  GLuint;
 typedef float         GLfloat;
 typedef float         GLclampf;
+typedef void          GLvoid;
 
 
 #define GL_BLEND      0x0BE2
 #define GL_DEPTH_TEST 0x0B71
+#define GL_TEXTURE_2D 0x0DE1
 
 
 /* BlendingFactorDest */
@@ -46,6 +52,44 @@ typedef float         GLclampf;
 #define GL_MODELVIEW  0x1700
 #define GL_PROJECTION 0x1701
 
+/* PixelFormat */
+#define GL_RGB  0x1907
+#define GL_RGBA 0x1908
+
+/* texture */
+#define GL_RGB8  0x8051
+#define GL_RGBA8 0x8058
+
+/* TextureEnvMode */
+#define GL_MODULATE 0x2100
+#define GL_DECAL    0x2101
+
+/* TextureEnvParameter */
+#define GL_TEXTURE_ENV_MODE  0x2200
+#define GL_TEXTURE_ENV_COLOR 0x2201
+
+/* TextureEnvTarget */
+#define GL_TEXTURE_ENV 0x2300
+
+/* TextureMagFilter */
+#define GL_NEAREST 0x2600
+#define GL_LINEAR  0x2601
+
+/* TextureMinFilter */
+#define GL_NEAREST_MIPMAP_NEAREST 0x2700
+#define GL_LINEAR_MIPMAP_NEAREST  0x2701
+#define GL_NEAREST_MIPMAP_LINEAR  0x2702
+#define GL_LINEAR_MIPMAP_LINEAR   0x2703
+
+/* TextureParameterName */
+#define GL_TEXTURE_MAG_FILTER 0x2800
+#define GL_TEXTURE_MIN_FILTER 0x2801
+#define GL_TEXTURE_WRAP_S     0x2802
+#define GL_TEXTURE_WRAP_T     0x2803
+
+/* DataType */
+#define GL_UNSIGNED_BYTE 0x1401
+
 
 #define GL_VENDOR     0x1F00
 #define GL_RENDERER   0x1F01
@@ -66,14 +110,22 @@ typedef void APIENTRY GL_PROC(glBlendFunc) (GLenum sfactor, GLenum dfactor);
 typedef void APIENTRY GL_PROC(glDisable) (GLenum cap);
 typedef void APIENTRY GL_PROC(glEnable) (GLenum cap);
 typedef void APIENTRY GL_PROC(glViewport) (GLint x, GLint y, GLsizei width, GLsizei height);
+typedef void APIENTRY GL_PROC(glGenTextures) (GLsizei n, GLuint *textures);
+typedef void APIENTRY GL_PROC(glBindTexture) (GLenum target, GLuint texture);
+typedef void APIENTRY GL_PROC(glTexImage2D) (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
+typedef void APIENTRY GL_PROC(glTexParameteri) (GLenum target, GLenum pname, GLint param);
 
-GL_PROC(glGetString)  *glGetString;
-GL_PROC(glClear)      *glClear;
-GL_PROC(glClearColor) *glClearColor;
-GL_PROC(glBlendFunc)  *glBlendFunc;
-GL_PROC(glDisable)    *glDisable;
-GL_PROC(glEnable)     *glEnable;
-GL_PROC(glViewport)   *glViewport;
+GL_PROC(glGetString)     *glGetString;
+GL_PROC(glClear)         *glClear;
+GL_PROC(glClearColor)    *glClearColor;
+GL_PROC(glBlendFunc)     *glBlendFunc;
+GL_PROC(glDisable)       *glDisable;
+GL_PROC(glEnable)        *glEnable;
+GL_PROC(glViewport)      *glViewport;
+GL_PROC(glGenTextures)   *glGenTextures;
+GL_PROC(glBindTexture)   *glBindTexture;
+GL_PROC(glTexImage2D)    *glTexImage2D;
+GL_PROC(glTexParameteri) *glTexParameteri;
 
 
 /***************** Legacy functions *********************/
@@ -84,6 +136,8 @@ typedef void APIENTRY GL_PROC(glColor3f) (GLfloat red, GLfloat green, GLfloat bl
 typedef void APIENTRY GL_PROC(glColor4f) (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
 typedef void APIENTRY GL_PROC(glMatrixMode) (GLenum mode);
 typedef void APIENTRY GL_PROC(glLoadMatrixf) (const GLfloat *m);
+typedef void APIENTRY GL_PROC(glTexEnvf) (GLenum target, GLenum pname, GLfloat param);
+typedef void APIENTRY GL_PROC(glTexCoord2f) (GLfloat s, GLfloat t);
 
 GL_PROC(glBegin)       *glBegin;
 GL_PROC(glEnd)         *glEnd;
@@ -92,6 +146,8 @@ GL_PROC(glColor3f)     *glColor3f;
 GL_PROC(glColor4f)     *glColor4f;
 GL_PROC(glMatrixMode)  *glMatrixMode;
 GL_PROC(glLoadMatrixf) *glLoadMatrixf;
+GL_PROC(glTexEnvf)     *glTexEnvf;
+GL_PROC(glTexCoord2f)  *glTexCoord2f;
 /***************** Legacy functions *********************/
 
 
@@ -130,6 +186,10 @@ void gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glDisable);
     W32_LOAD_GL_1_1_PROC(glEnable);
     W32_LOAD_GL_1_1_PROC(glViewport);
+    W32_LOAD_GL_1_1_PROC(glGenTextures);
+    W32_LOAD_GL_1_1_PROC(glBindTexture);
+    W32_LOAD_GL_1_1_PROC(glTexImage2D);
+    W32_LOAD_GL_1_1_PROC(glTexParameteri);
 
 
     W32_LOAD_GL_1_1_PROC(glBegin);
@@ -139,6 +199,8 @@ void gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glColor4f);
     W32_LOAD_GL_1_1_PROC(glMatrixMode);
     W32_LOAD_GL_1_1_PROC(glLoadMatrixf);
+    W32_LOAD_GL_1_1_PROC(glTexEnvf);
+    W32_LOAD_GL_1_1_PROC(glTexCoord2f);
 }
 
 bool set_pixel_format(HWND window) {
@@ -201,6 +263,74 @@ bool should_quit = false;
 int back_buffer_width;
 int back_buffer_height;
 
+GLuint last_bound_texture_id;
+
+struct Vector3 {
+    float x, y, z;
+};
+
+struct Vector4 {
+    float x, y, z, w;
+};
+
+struct Texture {
+    GLuint id;
+    int width;
+    int height;
+    int channels;
+};
+
+void render_update_texture(Texture *texture, unsigned char *data) {
+    if (!texture->id) {
+        glEnable(GL_TEXTURE_2D);
+        glGenTextures(1, &texture->id);
+    }
+
+    if (!texture->id) return;
+
+    // https://learn.microsoft.com/en-us/windows/win32/opengl/glteximage2d
+    GLenum gl_source_format = GL_RGBA8; // Texture format.
+    GLenum gl_dest_format   = GL_RGBA;  // The format of the pixel data.
+    if (texture->channels == 3) {
+        gl_source_format = GL_RGB8;
+        gl_dest_format   = GL_RGB;
+    }
+
+    // @Todo: Add more format.
+
+    glBindTexture(GL_TEXTURE_2D, texture->id);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_source_format, 
+                 texture->width, texture->height, 
+                 0, gl_dest_format, GL_UNSIGNED_BYTE, 
+                 data);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+}
+
+Texture texture_load_from_file(const char *file_path) {
+    Texture result = {};
+
+    stbi_uc *data = stbi_load(file_path, &result.width, &result.height, &result.channels, 0);
+    if (data) {
+        render_update_texture(&result, data);
+
+        stbi_image_free(data);
+    }
+
+    return result;
+}
+
+void set_texture(Texture *texture) {
+    if (last_bound_texture_id != texture->id) {
+        glBindTexture(GL_TEXTURE_2D, texture->id);
+    }
+
+    last_bound_texture_id = texture->id;
+}
+
 static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
         case WM_ERASEBKGND:
@@ -243,26 +373,95 @@ void rendering_2d(int w, int h) {
     glLoadMatrixf(identity);
 }
 
-void draw_quad(float x0, float y0, float x1, float y1) {
+void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
     glBegin(GL_TRIANGLES);
 
-    glColor4f(1, 0, 0, 1);
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(0, 1);
     glVertex3f(x0, y0, 0);
 
-    glColor4f(0, 1, 0, 1);
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(1, 1);
     glVertex3f(x1, y0, 0);
     
-    glColor4f(0, 0, 1, 1);
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(1, 0);
     glVertex3f(x1, y1,  0);
 
-    glColor4f(1, 0, 0, 1);
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(0, 1);
     glVertex3f(x0, y0, 0);
     
-    glColor4f(0, 0, 1, 1);
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(1, 0);
     glVertex3f(x1, y1,  0);
 
-    glColor4f(0, 1, 0, 1);
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(0, 0);
     glVertex3f(x0, y1,  0);
+
+    glEnd();
+}
+
+void draw_quad(float x0, float y0, float x1, float y1, 
+               float u0, float v0, float u1, float v1,
+               Vector4 c) {
+    glBegin(GL_TRIANGLES);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u0, v1);
+    glVertex3f(x0, y0, 0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u1, v1);
+    glVertex3f(x1, y0, 0);
+    
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u1, v0);
+    glVertex3f(x1, y1,  0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u0, v1);
+    glVertex3f(x0, y0, 0);
+    
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u1, v0);
+    glVertex3f(x1, y1,  0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u0, v0);
+    glVertex3f(x0, y1,  0);
+
+    glEnd();
+}
+
+void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
+               Vector4 c0, Vector4 c1, Vector4 c2, Vector4 c3) {
+    glBegin(GL_TRIANGLES);
+
+    glColor4f(c0.x, c0.y, c0.z, c0.w);
+    glTexCoord2f(0, 1);
+    glVertex3f(p0.x, p0.y, p0.z);
+
+    glColor4f(c1.x, c1.y, c1.z, c1.w);
+    glTexCoord2f(1, 1);
+    glVertex3f(p1.x, p1.y, p1.z);
+    
+    glColor4f(c2.x, c2.y, c2.z, c2.w);
+    glTexCoord2f(1, 0);
+    glVertex3f(p2.x, p2.y, p2.z);
+
+    glColor4f(c0.x, c0.y, c0.z, c0.w);
+    glTexCoord2f(0, 1);
+    glVertex3f(p0.x, p0.y, p0.z);
+
+    glColor4f(c2.x, c2.y, c2.z, c2.w);
+    glTexCoord2f(1, 0);
+    glVertex3f(p2.x, p2.y, p2.z);
+
+    glColor4f(c3.x, c3.y, c3.z, c3.w);
+    glTexCoord2f(0, 0);
+    glVertex3f(p3.x, p3.y, p3.z);
 
     glEnd();
 }
@@ -316,6 +515,9 @@ int main(void) {
     print("OpenGL Vendor:   %s\n", gl_vendor);
     print("OpenGL Renderer: %s\n", gl_renderer);
 
+    Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
+    Texture cat  = texture_load_from_file("data/textures/cat.png");
+
     // Display the window.
     UpdateWindow(hwnd);
     ShowWindow(hwnd, SW_SHOW);
@@ -347,7 +549,20 @@ int main(void) {
         glClearColor(0.2f, 0.38f, 0.72f, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        draw_quad(100, 100, 200, 200);
+        set_texture(&test);
+
+        draw_quad(10, 10, 100, 100, Vector4{1,1,1,1});
+
+        draw_quad(Vector3{100,100,0}, Vector3{250,100,0}, Vector3{250,250,0}, Vector3{100,250,0},
+                  Vector4{1,0,0,1},   Vector4{0,1,0,1},   Vector4{0,0,1,1},   Vector4{0,1,0,1});
+
+        set_texture(&cat);
+
+        draw_quad(400, 300, 500, 400, Vector4{1,1,1,1});
+        
+        draw_quad(500, 300, 650, 400, 
+                  0, 0, 1, 0.5f,
+                  Vector4{1,0,0,1});
 
         BOOL ok = SwapBuffers(hdc);
         if (ok == FALSE) {
@@ -385,3 +600,6 @@ int main(void) {
 
 #define GENERAL_IMPLEMENTATION
 #include "general.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"

@@ -9,3 +9,7 @@ Windows
 
 ![Colored Triangle](/Screenshots/colored_triangle.png "Colored Triangle")
 
+![Quads](/Screenshots/quads.png "Quads")
+
+![Textures](/Screenshots/textures.png "Textures")
+
