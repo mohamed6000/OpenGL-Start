@@ -17,6 +17,7 @@
 typedef unsigned int  GLenum;
 typedef unsigned char GLubyte;
 typedef unsigned int  GLbitfield;
+typedef float         GLfloat;
 typedef float         GLclampf;
 
 #define GL_VENDOR     0x1F00
@@ -24,16 +25,26 @@ typedef float         GLclampf;
 #define GL_VERSION    0x1F02
 #define GL_EXTENSIONS 0x1F03
 
+#define GL_TRIANGLES 0x0004
+
 #define GL_COLOR_BUFFER_BIT 0x00004000
 
 
 typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
 typedef void APIENTRY GL_PROC(glClear) (GLbitfield mask);
 typedef void APIENTRY GL_PROC(glClearColor) (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
+typedef void APIENTRY GL_PROC(glBegin) (GLenum mode);
+typedef void APIENTRY GL_PROC(glEnd) (void);
+typedef void APIENTRY GL_PROC(glVertex3f) (GLfloat x, GLfloat y, GLfloat z);
+typedef void APIENTRY GL_PROC(glColor3f) (GLfloat red, GLfloat green, GLfloat blue);
 
-GL_PROC(glGetString) *glGetString;
-GL_PROC(glClear) *glClear;
+GL_PROC(glGetString)  *glGetString;
+GL_PROC(glClear)      *glClear;
 GL_PROC(glClearColor) *glClearColor;
+GL_PROC(glBegin)      *glBegin;
+GL_PROC(glEnd)        *glEnd;
+GL_PROC(glVertex3f)   *glVertex3f;
+GL_PROC(glColor3f)    *glColor3f;
 
 
 // WGL.
@@ -67,6 +78,10 @@ void gl_load(void) {
     W32_LOAD_GL_PROC(glGetString);
     W32_LOAD_GL_PROC(glClear);
     W32_LOAD_GL_PROC(glClearColor);
+    W32_LOAD_GL_PROC(glBegin);
+    W32_LOAD_GL_PROC(glEnd);
+    W32_LOAD_GL_PROC(glVertex3f);
+    W32_LOAD_GL_PROC(glColor3f);
 
     FreeLibrary(gl_module);
 }
@@ -208,6 +223,19 @@ int main(void) {
         glClear(GL_COLOR_BUFFER_BIT);
         // glClearColor(0.2f, 0.72f, 0.38f, 1);
         glClearColor(0.2f, 0.38f, 0.72f, 1);
+
+        glBegin(GL_TRIANGLES);
+
+        glVertex3f(-0.5f, -0.5f, 0);
+        glColor3f(1.0f, 0, 0);
+
+        glVertex3f(0.5f, -0.5f, 0);
+        glColor3f(0, 1.0f, 0);
+        
+        glVertex3f(0, 0.5f,  0);
+        glColor3f(0, 0, 1.0f);
+
+        glEnd();
 
         BOOL ok = SwapBuffers(hdc);
         if (ok == FALSE) {
