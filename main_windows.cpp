@@ -17,15 +17,40 @@
 typedef unsigned int  GLenum;
 typedef unsigned char GLubyte;
 typedef unsigned int  GLbitfield;
+typedef int           GLint;
+typedef int           GLsizei;
 typedef float         GLfloat;
 typedef float         GLclampf;
+
+
+#define GL_BLEND      0x0BE2
+#define GL_DEPTH_TEST 0x0B71
+
+
+/* BlendingFactorDest */
+#define GL_ZERO                0
+#define GL_ONE                 1
+#define GL_SRC_COLOR           0x0300
+#define GL_ONE_MINUS_SRC_COLOR 0x0301
+#define GL_SRC_ALPHA           0x0302
+#define GL_ONE_MINUS_SRC_ALPHA 0x0303
+#define GL_DST_ALPHA           0x0304
+#define GL_ONE_MINUS_DST_ALPHA 0x0305
+
+/* BlendingFactorSrc */
+#define GL_DST_COLOR           0x0306
+#define GL_ONE_MINUS_DST_COLOR 0x0307
+#define GL_SRC_ALPHA_SATURATE  0x0308
+
 
 #define GL_VENDOR     0x1F00
 #define GL_RENDERER   0x1F01
 #define GL_VERSION    0x1F02
 #define GL_EXTENSIONS 0x1F03
 
+
 #define GL_TRIANGLES 0x0004
+
 
 #define GL_COLOR_BUFFER_BIT 0x00004000
 
@@ -33,18 +58,33 @@ typedef float         GLclampf;
 typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
 typedef void APIENTRY GL_PROC(glClear) (GLbitfield mask);
 typedef void APIENTRY GL_PROC(glClearColor) (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
-typedef void APIENTRY GL_PROC(glBegin) (GLenum mode);
-typedef void APIENTRY GL_PROC(glEnd) (void);
-typedef void APIENTRY GL_PROC(glVertex3f) (GLfloat x, GLfloat y, GLfloat z);
-typedef void APIENTRY GL_PROC(glColor3f) (GLfloat red, GLfloat green, GLfloat blue);
+typedef void APIENTRY GL_PROC(glBlendFunc) (GLenum sfactor, GLenum dfactor);
+typedef void APIENTRY GL_PROC(glDisable) (GLenum cap);
+typedef void APIENTRY GL_PROC(glEnable) (GLenum cap);
+typedef void APIENTRY GL_PROC(glViewport) (GLint x, GLint y, GLsizei width, GLsizei height);
 
 GL_PROC(glGetString)  *glGetString;
 GL_PROC(glClear)      *glClear;
 GL_PROC(glClearColor) *glClearColor;
+GL_PROC(glBlendFunc)  *glBlendFunc;
+GL_PROC(glDisable)    *glDisable;
+GL_PROC(glEnable)     *glEnable;
+GL_PROC(glViewport)   *glViewport;
+
+
+/***************** Legacy functions *********************/
+typedef void APIENTRY GL_PROC(glBegin) (GLenum mode);
+typedef void APIENTRY GL_PROC(glEnd) (void);
+typedef void APIENTRY GL_PROC(glVertex3f) (GLfloat x, GLfloat y, GLfloat z);
+typedef void APIENTRY GL_PROC(glColor3f) (GLfloat red, GLfloat green, GLfloat blue);
+typedef void APIENTRY GL_PROC(glColor4f) (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
+
 GL_PROC(glBegin)      *glBegin;
 GL_PROC(glEnd)        *glEnd;
 GL_PROC(glVertex3f)   *glVertex3f;
 GL_PROC(glColor3f)    *glColor3f;
+GL_PROC(glColor4f)    *glColor4f;
+/***************** Legacy functions *********************/
 
 
 // WGL.
@@ -52,12 +92,12 @@ typedef HGLRC WINAPI GL_PROC(wglCreateContext)(HDC);
 typedef BOOL  WINAPI GL_PROC(wglDeleteContext)(HGLRC);
 typedef BOOL  WINAPI GL_PROC(wglMakeCurrent)(HDC, HGLRC);
 
-GL_PROC(wglCreateContext) *W32_wglCreateContext;
-GL_PROC(wglDeleteContext) *W32_wglDeleteContext;
-GL_PROC(wglMakeCurrent)   *W32_wglMakeCurrent;
+static GL_PROC(wglCreateContext) *W32_wglCreateContext;
+static GL_PROC(wglDeleteContext) *W32_wglDeleteContext;
+static GL_PROC(wglMakeCurrent)   *W32_wglMakeCurrent;
 
 
-#define W32_LOAD_GL_PROC(ident) ident = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
+#define W32_LOAD_GL_1_1_PROC(ident) ident = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
 #define W32_LOAD_WGL_PROC(ident) CONCAT(W32_, ident) = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
 
 
@@ -75,15 +115,20 @@ void gl_load(void) {
     W32_LOAD_WGL_PROC(wglMakeCurrent);
 
 
-    W32_LOAD_GL_PROC(glGetString);
-    W32_LOAD_GL_PROC(glClear);
-    W32_LOAD_GL_PROC(glClearColor);
-    W32_LOAD_GL_PROC(glBegin);
-    W32_LOAD_GL_PROC(glEnd);
-    W32_LOAD_GL_PROC(glVertex3f);
-    W32_LOAD_GL_PROC(glColor3f);
+    W32_LOAD_GL_1_1_PROC(glGetString);
+    W32_LOAD_GL_1_1_PROC(glClear);
+    W32_LOAD_GL_1_1_PROC(glClearColor);
+    W32_LOAD_GL_1_1_PROC(glBlendFunc);
+    W32_LOAD_GL_1_1_PROC(glDisable);
+    W32_LOAD_GL_1_1_PROC(glEnable);
+    W32_LOAD_GL_1_1_PROC(glViewport);
 
-    FreeLibrary(gl_module);
+
+    W32_LOAD_GL_1_1_PROC(glBegin);
+    W32_LOAD_GL_1_1_PROC(glEnd);
+    W32_LOAD_GL_1_1_PROC(glVertex3f);
+    W32_LOAD_GL_1_1_PROC(glColor3f);
+    W32_LOAD_GL_1_1_PROC(glColor4f);
 }
 
 bool set_pixel_format(HWND window) {
@@ -146,8 +191,10 @@ bool should_quit = false;
 
 static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
+        case WM_ERASEBKGND:
+            return 1;
+
         case WM_CLOSE:
-        case WM_QUIT:
             should_quit = true;
             break;
 
@@ -168,7 +215,7 @@ int main(void) {
     wc.cbWndExtra           = 0;
     wc.hInstance            = hInstance;
     wc.hCursor              = LoadCursorW(null, IDC_ARROW);
-    wc.hbrBackground        = (HBRUSH)GetStockObject(WHITE_BRUSH);
+    // wc.hbrBackground        = (HBRUSH)GetStockObject(WHITE_BRUSH);
     wc.lpszMenuName         = null;
     wc.lpszClassName        = L"WindowClassName";
 
@@ -213,6 +260,17 @@ int main(void) {
 
     HDC hdc = GetDC(hwnd);
 
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    RECT client_rect;
+    GetClientRect(hwnd, &client_rect);
+    int width  = client_rect.right  - client_rect.left;
+    int height = client_rect.bottom - client_rect.top;
+
+    glViewport(0, 0, width, height);
+
     while (!should_quit) {
         MSG msg;
         while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
@@ -220,20 +278,20 @@ int main(void) {
             DispatchMessageW(&msg);
         }
 
-        glClear(GL_COLOR_BUFFER_BIT);
         // glClearColor(0.2f, 0.72f, 0.38f, 1);
         glClearColor(0.2f, 0.38f, 0.72f, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         glBegin(GL_TRIANGLES);
 
+        glColor4f(1.0f, 0, 0, 0.5f);
         glVertex3f(-0.5f, -0.5f, 0);
-        glColor3f(1.0f, 0, 0);
 
+        glColor4f(0, 1.0f, 0, 0.5f);
         glVertex3f(0.5f, -0.5f, 0);
-        glColor3f(0, 1.0f, 0);
         
+        glColor4f(0, 0, 1.0f, 0.5f);
         glVertex3f(0, 0.5f,  0);
-        glColor3f(0, 0, 1.0f);
 
         glEnd();
 
