@@ -42,6 +42,10 @@ typedef float         GLclampf;
 #define GL_ONE_MINUS_DST_COLOR 0x0307
 #define GL_SRC_ALPHA_SATURATE  0x0308
 
+/* MatrixMode */
+#define GL_MODELVIEW  0x1700
+#define GL_PROJECTION 0x1701
+
 
 #define GL_VENDOR     0x1F00
 #define GL_RENDERER   0x1F01
@@ -78,12 +82,16 @@ typedef void APIENTRY GL_PROC(glEnd) (void);
 typedef void APIENTRY GL_PROC(glVertex3f) (GLfloat x, GLfloat y, GLfloat z);
 typedef void APIENTRY GL_PROC(glColor3f) (GLfloat red, GLfloat green, GLfloat blue);
 typedef void APIENTRY GL_PROC(glColor4f) (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
+typedef void APIENTRY GL_PROC(glMatrixMode) (GLenum mode);
+typedef void APIENTRY GL_PROC(glLoadMatrixf) (const GLfloat *m);
 
-GL_PROC(glBegin)      *glBegin;
-GL_PROC(glEnd)        *glEnd;
-GL_PROC(glVertex3f)   *glVertex3f;
-GL_PROC(glColor3f)    *glColor3f;
-GL_PROC(glColor4f)    *glColor4f;
+GL_PROC(glBegin)       *glBegin;
+GL_PROC(glEnd)         *glEnd;
+GL_PROC(glVertex3f)    *glVertex3f;
+GL_PROC(glColor3f)     *glColor3f;
+GL_PROC(glColor4f)     *glColor4f;
+GL_PROC(glMatrixMode)  *glMatrixMode;
+GL_PROC(glLoadMatrixf) *glLoadMatrixf;
 /***************** Legacy functions *********************/
 
 
@@ -129,6 +137,8 @@ void gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glVertex3f);
     W32_LOAD_GL_1_1_PROC(glColor3f);
     W32_LOAD_GL_1_1_PROC(glColor4f);
+    W32_LOAD_GL_1_1_PROC(glMatrixMode);
+    W32_LOAD_GL_1_1_PROC(glLoadMatrixf);
 }
 
 bool set_pixel_format(HWND window) {
@@ -188,6 +198,8 @@ bool opengl_init(HWND window) {
 }
 
 bool should_quit = false;
+int back_buffer_width;
+int back_buffer_height;
 
 static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
@@ -198,11 +210,61 @@ static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM w
             should_quit = true;
             break;
 
+        case WM_SIZE:
+            back_buffer_width  = LOWORD(lparam);
+            back_buffer_height = HIWORD(lparam);
+            break;
+
         default:
             return DefWindowProcW(hwnd, msg, wparam, lparam);
     }
 
     return 0;
+}
+
+void rendering_2d(int w, int h) {
+    glMatrixMode(GL_PROJECTION);
+
+    float proj[16] = {
+        2.0f/w,  0,       0,   0,
+        0,       2.0f/h,  0,   0,
+        0,       0,       1,   0,
+       -1,      -1,       0,   1
+    };
+    glLoadMatrixf(proj);
+
+    glMatrixMode(GL_MODELVIEW);
+    float identity[16] = {
+        1,0,0,0,
+        0,1,0,0,
+        0,0,1,0,
+        0,0,0,1
+    };
+    glLoadMatrixf(identity);
+}
+
+void draw_quad(float x0, float y0, float x1, float y1) {
+    glBegin(GL_TRIANGLES);
+
+    glColor4f(1, 0, 0, 1);
+    glVertex3f(x0, y0, 0);
+
+    glColor4f(0, 1, 0, 1);
+    glVertex3f(x1, y0, 0);
+    
+    glColor4f(0, 0, 1, 1);
+    glVertex3f(x1, y1,  0);
+
+    glColor4f(1, 0, 0, 1);
+    glVertex3f(x0, y0, 0);
+    
+    glColor4f(0, 0, 1, 1);
+    glVertex3f(x1, y1,  0);
+
+    glColor4f(0, 1, 0, 1);
+    glVertex3f(x0, y1,  0);
+
+    glEnd();
 }
 
 int main(void) {
@@ -266,10 +328,9 @@ int main(void) {
 
     RECT client_rect;
     GetClientRect(hwnd, &client_rect);
-    int width  = client_rect.right  - client_rect.left;
-    int height = client_rect.bottom - client_rect.top;
 
-    glViewport(0, 0, width, height);
+    back_buffer_width  = client_rect.right  - client_rect.left;
+    back_buffer_height = client_rect.bottom - client_rect.top;
 
     while (!should_quit) {
         MSG msg;
@@ -278,22 +339,15 @@ int main(void) {
             DispatchMessageW(&msg);
         }
 
+        glViewport(0, 0, back_buffer_width, back_buffer_height);
+        
+        rendering_2d(back_buffer_width, back_buffer_height);
+
         // glClearColor(0.2f, 0.72f, 0.38f, 1);
         glClearColor(0.2f, 0.38f, 0.72f, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glBegin(GL_TRIANGLES);
-
-        glColor4f(1.0f, 0, 0, 0.5f);
-        glVertex3f(-0.5f, -0.5f, 0);
-
-        glColor4f(0, 1.0f, 0, 0.5f);
-        glVertex3f(0.5f, -0.5f, 0);
-        
-        glColor4f(0, 0, 1.0f, 0.5f);
-        glVertex3f(0, 0.5f,  0);
-
-        glEnd();
+        draw_quad(100, 100, 200, 200);
 
         BOOL ok = SwapBuffers(hdc);
         if (ok == FALSE) {
