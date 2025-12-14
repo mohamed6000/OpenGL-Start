@@ -40,6 +40,18 @@ typedef void          GLvoid;
 #define GL_LINE_STIPPLE            0x0B24
 #define GL_LINE_STIPPLE_PATTERN    0x0B25
 #define GL_LINE_STIPPLE_REPEAT     0x0B26
+#define GL_UNPACK_SWAP_BYTES       0x0CF0
+#define GL_UNPACK_LSB_FIRST        0x0CF1
+#define GL_UNPACK_ROW_LENGTH       0x0CF2
+#define GL_UNPACK_SKIP_ROWS        0x0CF3
+#define GL_UNPACK_SKIP_PIXELS      0x0CF4
+#define GL_UNPACK_ALIGNMENT        0x0CF5
+#define GL_PACK_SWAP_BYTES         0x0D00
+#define GL_PACK_LSB_FIRST          0x0D01
+#define GL_PACK_ROW_LENGTH         0x0D02
+#define GL_PACK_SKIP_ROWS          0x0D03
+#define GL_PACK_SKIP_PIXELS        0x0D04
+#define GL_PACK_ALIGNMENT          0x0D05
 #define GL_TEXTURE_1D              0x0DE0
 #define GL_TEXTURE_2D              0x0DE1
 #define GL_SCISSOR_BOX             0x0C10
@@ -149,8 +161,17 @@ typedef void          GLvoid;
 #define GL_PROJECTION 0x1701
 
 /* PixelFormat */
-#define GL_RGB  0x1907
-#define GL_RGBA 0x1908
+#define GL_COLOR_INDEX     0x1900
+#define GL_STENCIL_INDEX   0x1901
+#define GL_DEPTH_COMPONENT 0x1902
+#define GL_RED             0x1903
+#define GL_GREEN           0x1904
+#define GL_BLUE            0x1905
+#define GL_ALPHA           0x1906
+#define GL_RGB             0x1907
+#define GL_RGBA            0x1908
+#define GL_LUMINANCE       0x1909
+#define GL_LUMINANCE_ALPHA 0x190A
 
 /* polygon_offset */
 #define GL_POLYGON_OFFSET_FACTOR 0x8038
@@ -236,6 +257,11 @@ typedef void APIENTRY GL_PROC(glColorMask) (GLboolean red, GLboolean green, GLbo
 typedef void APIENTRY GL_PROC(glDrawArrays) (GLenum mode, GLint first, GLsizei count);
 typedef void APIENTRY GL_PROC(glDrawElements) (GLenum mode, GLsizei count, GLenum type, const GLvoid *indices);
 typedef void APIENTRY GL_PROC(glDeleteTextures) (GLsizei n, const GLuint *textures);
+typedef void APIENTRY GL_PROC(glClearStencil) (GLint s);
+typedef void APIENTRY GL_PROC(glReadPixels) (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid *pixels);
+typedef void APIENTRY GL_PROC(glPixelStoref) (GLenum pname, GLfloat param);
+typedef void APIENTRY GL_PROC(glPixelStorei) (GLenum pname, GLint param);
+typedef void APIENTRY GL_PROC(glReadBuffer) (GLenum mode);
 
 GL_PROC(glGetString)     *glGetString;
 GL_PROC(glClear)         *glClear;
@@ -266,6 +292,11 @@ GL_PROC(glColorMask)     *glColorMask;
 GL_PROC(glDrawArrays)    *glDrawArrays;
 GL_PROC(glDrawElements)  *glDrawElements;
 GL_PROC(glDeleteTextures)*glDeleteTextures;
+GL_PROC(glClearStencil)  *glClearStencil;
+GL_PROC(glReadPixels)    *glReadPixels;
+GL_PROC(glPixelStoref)   *glPixelStoref;
+GL_PROC(glPixelStorei)   *glPixelStorei;
+GL_PROC(glReadBuffer)    *glReadBuffer;
 
 /***************** Legacy functions *********************/
 typedef void APIENTRY GL_PROC(glBegin) (GLenum mode);
@@ -346,6 +377,11 @@ void gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glColorMask);
     W32_LOAD_GL_1_1_PROC(glDrawElements);
     W32_LOAD_GL_1_1_PROC(glDeleteTextures);
+    W32_LOAD_GL_1_1_PROC(glClearStencil);
+    W32_LOAD_GL_1_1_PROC(glReadPixels);
+    W32_LOAD_GL_1_1_PROC(glPixelStoref);
+    W32_LOAD_GL_1_1_PROC(glPixelStorei);
+    W32_LOAD_GL_1_1_PROC(glReadBuffer);
 
 
     W32_LOAD_GL_1_1_PROC(glBegin);
