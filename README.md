@@ -13,3 +13,5 @@ Windows
 
 ![Textures](/Screenshots/textures.png "Textures")
 
+![Depth Testing](/Screenshots/depth_testing.png "Depth Testing")
+

@@ -25,6 +25,7 @@ typedef unsigned char GLubyte;
 typedef unsigned int  GLuint;
 typedef float         GLfloat;
 typedef float         GLclampf;
+typedef double        GLclampd;
 typedef void          GLvoid;
 
 
@@ -32,6 +33,15 @@ typedef void          GLvoid;
 #define GL_DEPTH_TEST 0x0B71
 #define GL_TEXTURE_2D 0x0DE1
 
+/* AlphaFunction */
+#define GL_NEVER    0x0200
+#define GL_LESS     0x0201
+#define GL_EQUAL    0x0202
+#define GL_LEQUAL   0x0203
+#define GL_GREATER  0x0204
+#define GL_NOTEQUAL 0x0205
+#define GL_GEQUAL   0x0206
+#define GL_ALWAYS   0x0207
 
 /* BlendingFactorDest */
 #define GL_ZERO                0
@@ -99,7 +109,7 @@ typedef void          GLvoid;
 
 #define GL_TRIANGLES 0x0004
 
-
+#define GL_DEPTH_BUFFER_BIT 0x00000100
 #define GL_COLOR_BUFFER_BIT 0x00004000
 
 
@@ -114,6 +124,8 @@ typedef void APIENTRY GL_PROC(glGenTextures) (GLsizei n, GLuint *textures);
 typedef void APIENTRY GL_PROC(glBindTexture) (GLenum target, GLuint texture);
 typedef void APIENTRY GL_PROC(glTexImage2D) (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
 typedef void APIENTRY GL_PROC(glTexParameteri) (GLenum target, GLenum pname, GLint param);
+typedef void APIENTRY GL_PROC(glDepthFunc) (GLenum func);
+typedef void APIENTRY GL_PROC(glClearDepth) (GLclampd depth);
 
 GL_PROC(glGetString)     *glGetString;
 GL_PROC(glClear)         *glClear;
@@ -126,6 +138,8 @@ GL_PROC(glGenTextures)   *glGenTextures;
 GL_PROC(glBindTexture)   *glBindTexture;
 GL_PROC(glTexImage2D)    *glTexImage2D;
 GL_PROC(glTexParameteri) *glTexParameteri;
+GL_PROC(glDepthFunc)     *glDepthFunc;
+GL_PROC(glClearDepth)    *glClearDepth;
 
 
 /***************** Legacy functions *********************/
@@ -162,7 +176,7 @@ static GL_PROC(wglMakeCurrent)   *W32_wglMakeCurrent;
 
 
 #define W32_LOAD_GL_1_1_PROC(ident) ident = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
-#define W32_LOAD_WGL_PROC(ident) CONCAT(W32_, ident) = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
+#define W32_LOAD_WGL_PROC(ident) CONCAT(W32_,ident) = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
 
 
 HGLRC gl_context;
@@ -190,6 +204,8 @@ void gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glBindTexture);
     W32_LOAD_GL_1_1_PROC(glTexImage2D);
     W32_LOAD_GL_1_1_PROC(glTexParameteri);
+    W32_LOAD_GL_1_1_PROC(glDepthFunc);
+    W32_LOAD_GL_1_1_PROC(glClearDepth);
 
 
     W32_LOAD_GL_1_1_PROC(glBegin);
@@ -524,7 +540,11 @@ int main(void) {
 
     HDC hdc = GetDC(hwnd);
 
-    glDisable(GL_DEPTH_TEST);
+    // glDisable(GL_DEPTH_TEST);
+    // Depth is mapped as near=-1 and far 1.
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
@@ -547,7 +567,8 @@ int main(void) {
 
         // glClearColor(0.2f, 0.72f, 0.38f, 1);
         glClearColor(0.2f, 0.38f, 0.72f, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClearDepth(1);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
         set_texture(&test);
 
@@ -558,11 +579,29 @@ int main(void) {
 
         set_texture(&cat);
 
-        draw_quad(400, 300, 500, 400, Vector4{1,1,1,1});
-        
         draw_quad(500, 300, 650, 400, 
                   0, 0, 1, 0.5f,
                   Vector4{1,0,0,1});
+
+        float depth,x0,y0,x1,y1;
+
+        set_texture(&test);
+        depth = 0;
+        x0 = 200;
+        y0 = 200;
+        x1 = 500;
+        y1 = 500;
+        draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
+                  Vector4{1,0,0,1},   Vector4{0,1,0,1},   Vector4{0,0,1,1},   Vector4{0,1,0,1});
+
+        set_texture(&cat);
+        depth = -0.2f;
+        x0 = 400;
+        y0 = 300;
+        x1 = 500;
+        y1 = 400;
+        draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
+                  Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1});
 
         BOOL ok = SwapBuffers(hdc);
         if (ok == FALSE) {
