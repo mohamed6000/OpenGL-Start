@@ -308,6 +308,7 @@ typedef void APIENTRY GL_PROC(glMatrixMode) (GLenum mode);
 typedef void APIENTRY GL_PROC(glLoadMatrixf) (const GLfloat *m);
 typedef void APIENTRY GL_PROC(glTexEnvf) (GLenum target, GLenum pname, GLfloat param);
 typedef void APIENTRY GL_PROC(glTexCoord2f) (GLfloat s, GLfloat t);
+typedef void APIENTRY GL_PROC(glLoadIdentity) (void);
 
 GL_PROC(glBegin)       *glBegin;
 GL_PROC(glEnd)         *glEnd;
@@ -318,6 +319,7 @@ GL_PROC(glMatrixMode)  *glMatrixMode;
 GL_PROC(glLoadMatrixf) *glLoadMatrixf;
 GL_PROC(glTexEnvf)     *glTexEnvf;
 GL_PROC(glTexCoord2f)  *glTexCoord2f;
+GL_PROC(glLoadIdentity)*glLoadIdentity;
 /***************** Legacy functions *********************/
 
 
@@ -393,6 +395,7 @@ void gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glLoadMatrixf);
     W32_LOAD_GL_1_1_PROC(glTexEnvf);
     W32_LOAD_GL_1_1_PROC(glTexCoord2f);
+    W32_LOAD_GL_1_1_PROC(glLoadIdentity);
 }
 
 bool set_pixel_format(HWND window) {
@@ -556,13 +559,7 @@ void rendering_2d(int w, int h) {
     glLoadMatrixf(proj);
 
     glMatrixMode(GL_MODELVIEW);
-    float identity[16] = {
-        1,0,0,0,
-        0,1,0,0,
-        0,0,1,0,
-        0,0,0,1
-    };
-    glLoadMatrixf(identity);
+    glLoadIdentity();
 }
 
 void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
