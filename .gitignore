@@ -5,3 +5,4 @@ test.cpp
 *.obj
 *.pdb
 checks.bat
+main_linux
