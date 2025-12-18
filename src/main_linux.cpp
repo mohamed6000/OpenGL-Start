@@ -59,7 +59,7 @@ static GL_PROC(glXSwapBuffers)    *glXSwapBuffers;
 #define GLX_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(glx_module, #ident)
 
 void glx_load(void) {
-    void *glx_module = dlopen("./libGLX.so", RTLD_LAZY);
+    void *glx_module = dlopen("libGLX.so.0", RTLD_LAZY);
     if (!glx_module) {
         glx_module = dlopen("libGLX.so", RTLD_LAZY);
     }
