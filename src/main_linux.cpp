@@ -1,12 +1,81 @@
 #include "general.h"
 
 #include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <dlfcn.h>
 
 #include "stb_image.h"
 
 
-#include <GL/glx.h>
+// #include <GL/glx.h>
 #include <GL/gl.h>
+
+typedef struct __GLXcontextRec *GLXContext;
+typedef XID GLXDrawable;
+
+/*
+ * Tokens for glXChooseVisual and glXGetConfig:
+ */
+#define GLX_USE_GL           1
+#define GLX_BUFFER_SIZE      2
+#define GLX_LEVEL            3
+#define GLX_RGBA             4
+#define GLX_DOUBLEBUFFER     5
+#define GLX_STEREO           6
+#define GLX_AUX_BUFFERS      7
+#define GLX_RED_SIZE         8
+#define GLX_GREEN_SIZE       9
+#define GLX_BLUE_SIZE        10
+#define GLX_ALPHA_SIZE       11
+#define GLX_DEPTH_SIZE       12
+#define GLX_STENCIL_SIZE     13
+#define GLX_ACCUM_RED_SIZE   14
+#define GLX_ACCUM_GREEN_SIZE 15
+#define GLX_ACCUM_BLUE_SIZE  16
+#define GLX_ACCUM_ALPHA_SIZE 17
+
+/*
+ * GLX 1.4 and later:
+ */
+#define GLX_SAMPLE_BUFFERS 0x186a0 /*100000*/
+#define GLX_SAMPLES        0x186a1 /*100001*/
+
+#define GL_PROC(ident) CONCAT(ident,PROC)
+
+typedef Bool GL_PROC(glXQueryVersion)( Display *dpy, int *maj, int *min );
+typedef XVisualInfo* GL_PROC(glXChooseVisual)( Display *dpy, int screen, int *attribList );
+typedef GLXContext GL_PROC(glXCreateContext)( Display *dpy, XVisualInfo *vis, GLXContext shareList, Bool direct );
+typedef void GL_PROC(glXDestroyContext)( Display *dpy, GLXContext ctx );
+typedef Bool GL_PROC(glXMakeCurrent)( Display *dpy, GLXDrawable drawable, GLXContext ctx);
+typedef void GL_PROC(glXSwapBuffers)( Display *dpy, GLXDrawable drawable );
+
+static GL_PROC(glXQueryVersion)   *glXQueryVersion;
+static GL_PROC(glXChooseVisual)   *glXChooseVisual;
+static GL_PROC(glXCreateContext)  *glXCreateContext;
+static GL_PROC(glXDestroyContext) *glXDestroyContext;
+static GL_PROC(glXMakeCurrent)    *glXMakeCurrent;
+static GL_PROC(glXSwapBuffers)    *glXSwapBuffers;
+
+#define GLX_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(glx_module, #ident)
+
+void glx_load(void) {
+    void *glx_module = dlopen("./libGLX.so", RTLD_LAZY);
+    if (!glx_module) {
+        glx_module = dlopen("libGLX.so", RTLD_LAZY);
+    }
+
+    if (!glx_module) {
+        write_string("Failed to load GLX.\n", true);
+        return;
+    }
+
+    GLX_LOAD_PROC(glXQueryVersion);
+    GLX_LOAD_PROC(glXChooseVisual);
+    GLX_LOAD_PROC(glXCreateContext);
+    GLX_LOAD_PROC(glXDestroyContext);
+    GLX_LOAD_PROC(glXMakeCurrent);
+    GLX_LOAD_PROC(glXSwapBuffers);
+}
 
 struct Vector3 {
     float x, y, z;
@@ -192,6 +261,8 @@ int main(void) {
         write_string("Failed to XOpenDisplay.\n", true);
         return 0;
     }
+
+    glx_load();
 
     // GLX version.
     GLint majorGLX, minorGLX;
@@ -388,7 +459,6 @@ int main(void) {
     XFreeColormap(display, colormap);
     XDestroyWindow(display, window);
     XCloseDisplay(display);
-
     return 0;
 }
 
