@@ -491,7 +491,7 @@ void render_update_texture(Texture *texture, unsigned char *data) {
         gl_dest_format   = GL_RGB;
     }
 
-    // @Todo: Add more format.
+    // @Todo: Add more formats.
 
     glBindTexture(GL_TEXTURE_2D, texture->id);
     glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);

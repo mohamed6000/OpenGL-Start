@@ -2,8 +2,187 @@
 
 #include <X11/Xlib.h>
 
+#include "stb_image.h"
+
+
 #include <GL/glx.h>
 #include <GL/gl.h>
+
+struct Vector3 {
+    float x, y, z;
+};
+
+struct Vector4 {
+    float x, y, z, w;
+};
+
+struct Texture {
+    GLuint id;
+    int width;
+    int height;
+    int channels;
+};
+
+GLuint last_bound_texture_id;
+
+void render_update_texture(Texture *texture, unsigned char *data) {
+    if (!texture->id) {
+        glEnable(GL_TEXTURE_2D);
+        glGenTextures(1, &texture->id);
+    }
+
+    if (!texture->id) return;
+
+    // https://learn.microsoft.com/en-us/windows/win32/opengl/glteximage2d
+    GLenum gl_source_format = GL_RGBA8; // Texture format.
+    GLenum gl_dest_format   = GL_RGBA;  // The format of the pixel data.
+    if (texture->channels == 3) {
+        gl_source_format = GL_RGB8;
+        gl_dest_format   = GL_RGB;
+    }
+
+    // @Todo: Add more formats.
+
+    glBindTexture(GL_TEXTURE_2D, texture->id);
+    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    
+    glTexImage2D(GL_TEXTURE_2D, 0, gl_source_format, 
+                 texture->width, texture->height, 
+                 0, gl_dest_format, GL_UNSIGNED_BYTE, 
+                 data);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+}
+
+Texture texture_load_from_file(const char *file_path) {
+    Texture result = {};
+
+    stbi_uc *data = stbi_load(file_path, &result.width, &result.height, &result.channels, 0);
+    if (data) {
+        render_update_texture(&result, data);
+
+        stbi_image_free(data);
+    }
+
+    return result;
+}
+
+void set_texture(Texture *texture) {
+    if (last_bound_texture_id != texture->id) {
+        glBindTexture(GL_TEXTURE_2D, texture->id);
+    }
+
+    last_bound_texture_id = texture->id;
+}
+
+void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
+    glBegin(GL_TRIANGLES);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(0, 1);
+    glVertex3f(x0, y0, 0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(1, 1);
+    glVertex3f(x1, y0, 0);
+    
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(1, 0);
+    glVertex3f(x1, y1,  0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(0, 1);
+    glVertex3f(x0, y0, 0);
+    
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(1, 0);
+    glVertex3f(x1, y1,  0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(0, 0);
+    glVertex3f(x0, y1,  0);
+
+    glEnd();
+}
+
+void draw_quad(float x0, float y0, float x1, float y1, 
+               float u0, float v0, float u1, float v1,
+               Vector4 c) {
+    glBegin(GL_TRIANGLES);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u0, v1);
+    glVertex3f(x0, y0, 0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u1, v1);
+    glVertex3f(x1, y0, 0);
+    
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u1, v0);
+    glVertex3f(x1, y1,  0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u0, v1);
+    glVertex3f(x0, y0, 0);
+    
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u1, v0);
+    glVertex3f(x1, y1,  0);
+
+    glColor4f(c.x, c.y, c.z, c.w);
+    glTexCoord2f(u0, v0);
+    glVertex3f(x0, y1,  0);
+
+    glEnd();
+}
+
+void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
+               Vector4 c0, Vector4 c1, Vector4 c2, Vector4 c3) {
+    glBegin(GL_TRIANGLES);
+
+    glColor4f(c0.x, c0.y, c0.z, c0.w);
+    glTexCoord2f(0, 1);
+    glVertex3f(p0.x, p0.y, p0.z);
+
+    glColor4f(c1.x, c1.y, c1.z, c1.w);
+    glTexCoord2f(1, 1);
+    glVertex3f(p1.x, p1.y, p1.z);
+    
+    glColor4f(c2.x, c2.y, c2.z, c2.w);
+    glTexCoord2f(1, 0);
+    glVertex3f(p2.x, p2.y, p2.z);
+
+    glColor4f(c0.x, c0.y, c0.z, c0.w);
+    glTexCoord2f(0, 1);
+    glVertex3f(p0.x, p0.y, p0.z);
+
+    glColor4f(c2.x, c2.y, c2.z, c2.w);
+    glTexCoord2f(1, 0);
+    glVertex3f(p2.x, p2.y, p2.z);
+
+    glColor4f(c3.x, c3.y, c3.z, c3.w);
+    glTexCoord2f(0, 0);
+    glVertex3f(p3.x, p3.y, p3.z);
+
+    glEnd();
+}
+
+void rendering_2d(int w, int h) {
+    glMatrixMode(GL_PROJECTION);
+
+    float proj[16] = {
+        2.0f/w,  0,       0,   0,
+        0,       2.0f/h,  0,   0,
+        0,       0,       1,   0,
+       -1,      -1,       0,   1
+    };
+    glLoadMatrixf(proj);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+}
 
 bool should_quit = false;
 
@@ -48,16 +227,6 @@ int main(void) {
         return 0;
     }
 
-/*
-    Window window = XCreateSimpleWindow(display,
-                                        XDefaultRootWindow(display),
-                                        0, 0,
-                                        800, 600,
-                                        0,
-                                        white_color,
-                                        black_color);
-*/
-
     Window parent_window = RootWindow(display, screen_id);
 
     Colormap colormap = XCreateColormap(display, parent_window, 
@@ -72,7 +241,7 @@ int main(void) {
     window_attributes.event_mask = ExposureMask|KeyPressMask|StructureNotifyMask;
 
     Window window = XCreateWindow(display, parent_window, 
-                                  0, 0,
+                                  10, 10,
                                   800, 600,
                                   0, 
                                   visual_info->depth, 
@@ -84,12 +253,6 @@ int main(void) {
     const char *title = "Window Test (Linux)";
     Atom net_wm_name = XInternAtom(display, "_NET_WM_NAME", False);
     Atom utf8_string = XInternAtom(display, "UTF8_STRING",  False);
-
-/*
-    XWindowAttributes window_attributes = {};
-    XGetWindowAttributes(display, window, &window_attributes);
-    GC gc = XCreateGC(display, window, 0, null);
-*/
 
     XChangeProperty(display, window, net_wm_name, utf8_string, 
                     8, PropModeReplace, 
@@ -117,18 +280,30 @@ int main(void) {
     const GLubyte *gl_version  = glGetString(GL_VERSION);
     const GLubyte *gl_vendor   = glGetString(GL_VENDOR);
     const GLubyte *gl_renderer = glGetString(GL_RENDERER);
-    
+
     print("OpenGL Version:  %s\n", gl_version);
     print("OpenGL Vendor:   %s\n", gl_vendor);
     print("OpenGL Renderer: %s\n", gl_renderer);
 
-    // XSelectInput(display, window, ExposureMask|KeyPressMask|StructureNotifyMask);
-    
+    Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
+    Texture cat  = texture_load_from_file("data/textures/cat.png");
+
     XClearWindow(display, window);
     XMapRaised(display, window);
-    // XMapWindow(display, window);
 
-    // XSync(display, False);
+    XWindowAttributes size_attributes;
+    XGetWindowAttributes(display, window, &size_attributes);
+
+    int back_buffer_width  = size_attributes.width;
+    int back_buffer_height = size_attributes.height;
+
+    // glDisable(GL_DEPTH_TEST);
+    // Depth is mapped as near=-1 and far 1.
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     while (!should_quit) {
         // Non-blocking event loop.
@@ -153,6 +328,8 @@ int main(void) {
 
                 case ConfigureNotify:
                     // Handle resize here.
+                    back_buffer_width  = event.xconfigure.width;
+                    back_buffer_height = event.xconfigure.height;
                     break;
 
                 case KeyPress:
@@ -161,8 +338,46 @@ int main(void) {
             }
         }
 
+        glViewport(0, 0, back_buffer_width, back_buffer_height);
+
+        rendering_2d(back_buffer_width, back_buffer_height);
+
         glClearColor(0.2f, 0.38f, 0.72f, 1);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClearDepth(1);
+        glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
+
+        set_texture(&test);
+
+        draw_quad(10, 10, 100, 100, Vector4{1,1,1,1});
+
+        draw_quad(Vector3{100,100,0}, Vector3{250,100,0}, Vector3{250,250,0}, Vector3{100,250,0},
+                  Vector4{1,0,0,1},   Vector4{0,1,0,1},   Vector4{0,0,1,1},   Vector4{0,1,0,1});
+
+        set_texture(&cat);
+
+        draw_quad(500, 300, 650, 400, 
+                  0, 0, 1, 0.5f,
+                  Vector4{1,0,0,1});
+
+        float depth,x0,y0,x1,y1;
+
+        set_texture(&test);
+        depth = 0;
+        x0 = 200;
+        y0 = 200;
+        x1 = 500;
+        y1 = 500;
+        draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
+                  Vector4{1,0,0,1},   Vector4{0,1,0,1},   Vector4{0,0,1,1},   Vector4{0,1,0,1});
+
+        set_texture(&cat);
+        depth = -0.2f;
+        x0 = 400;
+        y0 = 300;
+        x1 = 500;
+        y1 = 400;
+        draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
+                  Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1});
 
         glXSwapBuffers(display, window);
     }
@@ -171,7 +386,6 @@ int main(void) {
 
     XFree(visual_info);
     XFreeColormap(display, colormap);
-    // XFreeGC(display, gc);
     XDestroyWindow(display, window);
     XCloseDisplay(display);
 
@@ -184,3 +398,6 @@ int main(void) {
 
 #define GENERAL_IMPLEMENTATION
 #include "general.h"
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
