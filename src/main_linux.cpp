@@ -359,15 +359,19 @@ typedef void GL_PROC(glXDestroyContext)( Display *dpy, GLXContext ctx );
 typedef Bool GL_PROC(glXMakeCurrent)( Display *dpy, GLXDrawable drawable, GLXContext ctx);
 typedef void GL_PROC(glXSwapBuffers)( Display *dpy, GLXDrawable drawable );
 
+typedef void (*__GLXextFuncPtr)(void);
+typedef __GLXextFuncPtr GL_PROC(glXGetProcAddress) (const GLubyte *);
+
 static GL_PROC(glXQueryVersion)   *glXQueryVersion;
 static GL_PROC(glXChooseVisual)   *glXChooseVisual;
 static GL_PROC(glXCreateContext)  *glXCreateContext;
 static GL_PROC(glXDestroyContext) *glXDestroyContext;
 static GL_PROC(glXMakeCurrent)    *glXMakeCurrent;
 static GL_PROC(glXSwapBuffers)    *glXSwapBuffers;
+static GL_PROC(glXGetProcAddress) *glXGetProcAddress;
 
 #define GLX_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(glx_module, #ident)
-#define GL1_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(gl_module, #ident)
+#define GL1_LOAD_PROC(ident) ident = (GL_PROC(ident) *)glXGetProcAddress((const GLubyte *)#ident)
 
 bool glx_load(void) {
     void *glx_module = dlopen("libGLX.so.0", RTLD_LAZY);
@@ -387,23 +391,16 @@ bool glx_load(void) {
     GLX_LOAD_PROC(glXMakeCurrent);
     GLX_LOAD_PROC(glXSwapBuffers);
 
+    glXGetProcAddress = (glXGetProcAddressPROC *)dlsym(glx_module, "glXGetProcAddressARB");
+    if (!glXGetProcAddress) {
+        GLX_LOAD_PROC(glXGetProcAddress);
+    }
+
+
     return true;
 }
 
 bool gl_load(void) {
-    void *gl_module = dlopen("libGL.so.1", RTLD_LAZY);
-    if (!gl_module) {
-        gl_module = dlopen("libGL.so.1.7.0", RTLD_LAZY);
-    }
-    if (!gl_module) {
-        gl_module = dlopen("libGL.so", RTLD_LAZY);
-    }
-
-    if (!gl_module) {
-        write_string("Failed to load GL module.\n", true);
-        return false;
-    }
-
     GL1_LOAD_PROC(glGetString);
     GL1_LOAD_PROC(glClear);
     GL1_LOAD_PROC(glClearColor);
