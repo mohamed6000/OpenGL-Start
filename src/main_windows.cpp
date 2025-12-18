@@ -339,11 +339,11 @@ static GL_PROC(wglMakeCurrent)   *W32_wglMakeCurrent;
 
 HGLRC gl_context;
 
-void gl_load(void) {
+bool gl_load(void) {
     HMODULE gl_module = LoadLibraryA("OpenGL32.dll");
     if (!gl_module) {
         write_string("Failed to load Opengl32.\n", true);
-        return;
+        return false;
     }
 
     W32_LOAD_WGL_PROC(wglCreateContext);
@@ -396,6 +396,8 @@ void gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glTexEnvf);
     W32_LOAD_GL_1_1_PROC(glTexCoord2f);
     W32_LOAD_GL_1_1_PROC(glLoadIdentity);
+
+    return true;
 }
 
 bool set_pixel_format(HWND window) {
@@ -435,7 +437,7 @@ bool opengl_init(HWND window) {
     HDC hdc = GetDC(window);
 
     if (!gl_context) {
-        gl_load();
+        if (!gl_load()) return false;
 
         gl_context = W32_wglCreateContext(hdc);
         if (gl_context == null) {
