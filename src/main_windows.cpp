@@ -10,6 +10,17 @@
 #include "stb_image.h"
 
 
+extern "C" {
+    // https://docs.nvidia.com/gameworks/content/technologies/desktop/optimus.htm
+    // SHARED_EXPORT DWORD NvOptimusEnablement = 0x00000001;
+
+    /* 
+        This link https://gpuopen.com/learn/amdpowerxpressrequesthighperformance/
+        defines the constant as a DWORD, but every code I saw defines it as an int.
+    */
+    // SHARED_EXPORT int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 #if COMPILER_CL
 #pragma comment(lib, "Gdi32.lib")
 #endif
@@ -104,6 +115,10 @@ typedef void          GLvoid;
 #define GL_DST_COLOR           0x0306
 #define GL_ONE_MINUS_DST_COLOR 0x0307
 #define GL_SRC_ALPHA_SATURATE  0x0308
+
+/* Boolean */
+#define GL_TRUE  1
+#define GL_FALSE 0
 
 /* DataType */
 #define GL_BYTE           0x1400
@@ -327,14 +342,54 @@ GL_PROC(glLoadIdentity)*glLoadIdentity;
 typedef HGLRC WINAPI GL_PROC(wglCreateContext)(HDC);
 typedef BOOL  WINAPI GL_PROC(wglDeleteContext)(HGLRC);
 typedef BOOL  WINAPI GL_PROC(wglMakeCurrent)(HDC, HGLRC);
+typedef PROC  WINAPI GL_PROC(wglGetProcAddress)(LPCSTR);
 
-static GL_PROC(wglCreateContext) *W32_wglCreateContext;
-static GL_PROC(wglDeleteContext) *W32_wglDeleteContext;
-static GL_PROC(wglMakeCurrent)   *W32_wglMakeCurrent;
+static GL_PROC(wglCreateContext)  *W32_wglCreateContext;
+static GL_PROC(wglDeleteContext)  *W32_wglDeleteContext;
+static GL_PROC(wglMakeCurrent)    *W32_wglMakeCurrent;
+static GL_PROC(wglGetProcAddress) *W32_wglGetProcAddress;
+
+
+// WGLEXT.
+#define WGL_DRAW_TO_WINDOW_ARB    0x2001
+#define WGL_ACCELERATION_ARB      0x2003
+#define WGL_SUPPORT_OPENGL_ARB    0x2010
+#define WGL_DOUBLE_BUFFER_ARB     0x2011
+#define WGL_PIXEL_TYPE_ARB        0x2013
+#define WGL_COLOR_BITS_ARB        0x2014
+#define WGL_RED_BITS_ARB          0x2015
+#define WGL_GREEN_BITS_ARB        0x2017
+#define WGL_BLUE_BITS_ARB         0x2019
+#define WGL_ALPHA_BITS_ARB        0x201B
+#define WGL_DEPTH_BITS_ARB        0x2022
+#define WGL_STENCIL_BITS_ARB      0x2023
+#define WGL_AUX_BUFFERS_ARB       0x2024
+#define WGL_FULL_ACCELERATION_ARB 0x2027
+#define WGL_TYPE_RGBA_ARB         0x202B
+
+#define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB 0x2092
+#define WGL_CONTEXT_PROFILE_MASK_ARB  0x9126
+
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
+#define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
+typedef HGLRC WINAPI GL_PROC(wglCreateContextAttribsARB) (HDC hDC, HGLRC hShareContext, 
+                                                          const int *attribList);
+typedef BOOL WINAPI GL_PROC(wglChoosePixelFormatARB) (HDC hdc,
+                                                      const int *piAttribIList, 
+                                                      const FLOAT *pfAttribFList, 
+                                                      UINT nMaxFormats, 
+                                                      int *piFormats, 
+                                                      UINT *nNumFormats);
+
+static GL_PROC(wglCreateContextAttribsARB) *wglCreateContextAttribsARB;
+static GL_PROC(wglChoosePixelFormatARB)    *wglChoosePixelFormatARB;
 
 
 #define W32_LOAD_GL_1_1_PROC(ident) ident = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
 #define W32_LOAD_WGL_PROC(ident) CONCAT(W32_,ident) = (GL_PROC(ident) *)GetProcAddress(gl_module, #ident)
+#define GL_LOAD_PROC(ident) ident = (GL_PROC(ident) *)W32_wglGetProcAddress(#ident)
 
 
 HGLRC gl_context;
@@ -349,6 +404,7 @@ bool gl_load(void) {
     W32_LOAD_WGL_PROC(wglCreateContext);
     W32_LOAD_WGL_PROC(wglDeleteContext);
     W32_LOAD_WGL_PROC(wglMakeCurrent);
+    W32_LOAD_WGL_PROC(wglGetProcAddress);
 
 
     W32_LOAD_GL_1_1_PROC(glGetString);
@@ -400,50 +456,144 @@ bool gl_load(void) {
     return true;
 }
 
-bool set_pixel_format(HWND window) {
-    HDC hdc = GetDC(window);
+bool opengl_init(HWND window) {
+    // Create dummy window.
+    HINSTANCE hInstance = GetModuleHandleW(null);
 
-    PIXELFORMATDESCRIPTOR pixel_format = {};
-    pixel_format.nSize        = sizeof(PIXELFORMATDESCRIPTOR);
-    pixel_format.nVersion     = 1;
-    pixel_format.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    pixel_format.iPixelType   = PFD_TYPE_RGBA;
-    pixel_format.cColorBits   = 24;
-    pixel_format.cAlphaBits   = 8;
-    pixel_format.cDepthBits   = 24;
-    pixel_format.cStencilBits = 8;
-    pixel_format.iLayerType   = PFD_MAIN_PLANE;
+    WNDCLASSEXW wcex = {};
+    wcex.cbSize = size_of(WNDCLASSEXW);
+    wcex.hInstance     = hInstance;
+    wcex.lpszClassName = L"Dummy Window";
+    wcex.lpfnWndProc   = DefWindowProcW;
 
-    int pixel_format_index = ChoosePixelFormat(hdc, &pixel_format);
-    if (!pixel_format_index) {
-        write_string("Failed to ChoosePixelFormat.\n", true);
+    // Register the window class.
+    if (RegisterClassExW(&wcex) == 0) {
+        write_string("RegisterClassExW returned 0.\n", true);
         return false;
     }
 
-    BOOL success = SetPixelFormat(hdc, pixel_format_index, &pixel_format);
-    if (success == FALSE) {
+    HWND hwnd = CreateWindowExW(0,
+                                L"Dummy Window",
+                                L"Dummy Window",
+                                0,
+                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                null,
+                                null,
+                                hInstance,
+                                null);
+
+    if (!hwnd) {
+        write_string("CreateWindowExW returned 0.\n", true);
+        return false;
+    }
+
+    HDC dummy_dc = GetDC(hwnd);
+
+    {
+        PIXELFORMATDESCRIPTOR pixel_format = {};
+        pixel_format.nSize        = sizeof(PIXELFORMATDESCRIPTOR);
+        pixel_format.nVersion     = 1;
+        pixel_format.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+        pixel_format.iPixelType   = PFD_TYPE_RGBA;
+        pixel_format.cColorBits   = 24;
+        pixel_format.cAlphaBits   = 8;
+        pixel_format.cDepthBits   = 24;
+        pixel_format.cStencilBits = 8;
+        pixel_format.iLayerType   = PFD_MAIN_PLANE;
+
+        int pixel_format_index = ChoosePixelFormat(dummy_dc, &pixel_format);
+        if (!pixel_format_index) {
+            write_string("Failed to ChoosePixelFormat.\n", true);
+            return false;
+        }
+
+        BOOL success = SetPixelFormat(dummy_dc, pixel_format_index, &pixel_format);
+        if (success == FALSE) {
+            write_string("Failed to SetPixelFormat.\n", true);
+            return false;
+        }
+    }
+
+    if (!gl_load()) return false;
+
+    // Get dummy GL context.
+    HGLRC hglrc = W32_wglCreateContext(dummy_dc);
+    if (!hglrc) {
+        write_string("Failed to wglCreateContext.\n", true);
+        return false;
+    }
+
+    if (!W32_wglMakeCurrent(dummy_dc, hglrc)) {
+        write_string("Failed to wglMakeCurrent.\n", true);
+        return false;
+    }
+
+    // Load WGL functions using wglGetProcAddress.
+    GL_LOAD_PROC(wglCreateContextAttribsARB);
+    GL_LOAD_PROC(wglChoosePixelFormatARB);
+
+    W32_wglDeleteContext(hglrc);
+    ReleaseDC(hwnd, dummy_dc);
+    DestroyWindow(hwnd);
+    UnregisterClassW(L"Dummy Window", hInstance);
+
+
+    // Create modern GL context.
+    int pixel_attrib_list[] = {
+        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+        WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
+        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+        WGL_DOUBLE_BUFFER_ARB,  GL_TRUE,
+        WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
+        
+        // WGL_COLOR_BITS_ARB,     24,
+        // WGL_RED_BITS_ARB,       8,
+        // WGL_GREEN_BITS_ARB,     8,
+        // WGL_BLUE_BITS_ARB,      8,
+        // WGL_ALPHA_BITS_ARB,     8,
+        // WGL_DEPTH_BITS_ARB,     24,
+        // WGL_STENCIL_BITS_ARB,   8,
+        // WGL_AUX_BUFFERS_ARB,    1,
+        
+        0,  // Terminator.
+    };
+
+    HDC hdc = GetDC(window);
+
+    int pixel_format_index;
+    UINT extended_pick;
+    BOOL success = wglChoosePixelFormatARB(hdc, pixel_attrib_list, null, 1, 
+        &pixel_format_index, &extended_pick);
+    if ((success == FALSE) || (extended_pick == 0)) {
+        write_string("Failed to wglChoosePixelFormatARB.\n", true);
+        return false;
+    }
+
+    PIXELFORMATDESCRIPTOR pfd = {};
+    if (!DescribePixelFormat(hdc, pixel_format_index, 
+                             size_of(pfd), &pfd)) {
+        write_string("Failed to DescribePixelFormat.\n", true);
+        return false;
+    }
+
+    if (!SetPixelFormat(hdc, pixel_format_index, &pfd)) {
         write_string("Failed to SetPixelFormat.\n", true);
         return false;
     }
 
-    ReleaseDC(window, hdc);
+    int gl_attribs[] = {
+        WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+        WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+        // WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+        0,
+    };
 
-    return true;
-}
-
-bool opengl_init(HWND window) {
-    set_pixel_format(window);
-
-    HDC hdc = GetDC(window);
-
+    gl_context = wglCreateContextAttribsARB(hdc, null, gl_attribs);
     if (!gl_context) {
-        if (!gl_load()) return false;
-
-        gl_context = W32_wglCreateContext(hdc);
-        if (gl_context == null) {
-            write_string("Failed to wglCreateContext.\n", true);
-            return false;
-        }
+        write_string("Failed to wglCreateContextAttribsARB.\n", true);
+        return false;
     }
 
     if (!W32_wglMakeCurrent(hdc, gl_context)) {
@@ -451,8 +601,8 @@ bool opengl_init(HWND window) {
         return false;
     }
 
-    ReleaseDC(window, hdc);
-
+    // Load modern GL functions...
+    
     return true;
 }
 
@@ -688,7 +838,7 @@ int main(void) {
                                 CW_USEDEFAULT, CW_USEDEFAULT,
                                 null,
                                 null,
-                                (HINSTANCE)0,
+                                hInstance,
                                 null);
 
     if (hwnd == null) {
