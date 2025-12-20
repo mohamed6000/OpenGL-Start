@@ -27,6 +27,17 @@ extern "C" {
 
 #define GL_PROC(ident) CONCAT(ident,PROC)
 
+#ifndef GLAPI
+#define GLAPI extern
+#endif
+
+#ifdef GL_USE_LEGACY_PROCS
+#undef GL_USE_LEGACY_PROCS
+#define GL_USE_LEGACY_PROCS 1
+#else
+#define GL_USE_LEGACY_PROCS 0
+#endif
+
 
 typedef unsigned int  GLenum;
 typedef unsigned char GLboolean;
@@ -39,6 +50,8 @@ typedef float         GLfloat;
 typedef float         GLclampf;
 typedef double        GLclampd;
 typedef void          GLvoid;
+typedef smm           GLsizeiptr;
+typedef char          GLchar;
 
 
 #define GL_BLEND                   0x0BE2
@@ -243,6 +256,52 @@ typedef void          GLvoid;
 #define GL_COLOR_BUFFER_BIT 0x00004000
 
 
+// GLCOREARB.
+#define GL_SHADING_LANGUAGE_VERSION 0x8B8C
+#define GL_ARRAY_BUFFER 0x8892
+#define GL_STATIC_DRAW 0x88E4
+#define GL_FRAGMENT_SHADER 0x8B30
+#define GL_VERTEX_SHADER   0x8B31
+
+typedef void APIENTRY GL_PROC(glGenVertexArrays) (GLsizei n, GLuint *arrays);
+typedef void APIENTRY GL_PROC(glBindVertexArray) (GLuint array);
+typedef void APIENTRY GL_PROC(glGenBuffers) (GLsizei n, GLuint *buffers);
+typedef void APIENTRY GL_PROC(glBindBuffer) (GLenum target, GLuint buffer);
+typedef void APIENTRY GL_PROC(glBufferData) (GLenum target, GLsizeiptr size, const void *data, GLenum usage);
+typedef void APIENTRY GL_PROC(glCompileShader) (GLuint shader);
+typedef GLuint APIENTRY GL_PROC(glCreateProgram) (void);
+typedef GLuint APIENTRY GL_PROC(glCreateShader) (GLenum type);
+typedef void APIENTRY GL_PROC(glDeleteProgram) (GLuint program);
+typedef void APIENTRY GL_PROC(glDeleteShader) (GLuint shader);
+typedef void APIENTRY GL_PROC(glDetachShader) (GLuint program, GLuint shader);
+typedef void APIENTRY GL_PROC(glDisableVertexAttribArray) (GLuint index);
+typedef void APIENTRY GL_PROC(glEnableVertexAttribArray) (GLuint index);
+typedef void APIENTRY GL_PROC(glLinkProgram) (GLuint program);
+typedef void APIENTRY GL_PROC(glShaderSource) (GLuint shader, GLsizei count, const GLchar *const*string, const GLint *length);
+typedef void APIENTRY GL_PROC(glUseProgram) (GLuint program);
+typedef void APIENTRY GL_PROC(glAttachShader) (GLuint program, GLuint shader);
+typedef void APIENTRY GL_PROC(glVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+
+GL_PROC(glGenVertexArrays) *glGenVertexArrays;
+GL_PROC(glBindVertexArray) *glBindVertexArray;
+GL_PROC(glGenBuffers)      *glGenBuffers;
+GL_PROC(glBindBuffer)      *glBindBuffer;
+GL_PROC(glBufferData)      *glBufferData;
+GL_PROC(glCompileShader)   *glCompileShader;
+GL_PROC(glCreateProgram)   *glCreateProgram;
+GL_PROC(glCreateShader)    *glCreateShader;
+GL_PROC(glDeleteProgram)   *glDeleteProgram;
+GL_PROC(glDeleteShader)    *glDeleteShader;
+GL_PROC(glDetachShader)    *glDetachShader;
+GL_PROC(glDisableVertexAttribArray) *glDisableVertexAttribArray;
+GL_PROC(glEnableVertexAttribArray)  *glEnableVertexAttribArray;
+GL_PROC(glLinkProgram)  *glLinkProgram;
+GL_PROC(glShaderSource) *glShaderSource;
+GL_PROC(glUseProgram)   *glUseProgram;
+GL_PROC(glAttachShader) *glAttachShader;
+GL_PROC(glVertexAttribPointer) *glVertexAttribPointer;
+
+
 typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
 typedef void APIENTRY GL_PROC(glClear) (GLbitfield mask);
 typedef void APIENTRY GL_PROC(glClearColor) (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
@@ -313,6 +372,7 @@ GL_PROC(glPixelStoref)   *glPixelStoref;
 GL_PROC(glPixelStorei)   *glPixelStorei;
 GL_PROC(glReadBuffer)    *glReadBuffer;
 
+#if GL_USE_LEGACY_PROCS
 /***************** Legacy functions *********************/
 typedef void APIENTRY GL_PROC(glBegin) (GLenum mode);
 typedef void APIENTRY GL_PROC(glEnd) (void);
@@ -336,6 +396,7 @@ GL_PROC(glTexEnvf)     *glTexEnvf;
 GL_PROC(glTexCoord2f)  *glTexCoord2f;
 GL_PROC(glLoadIdentity)*glLoadIdentity;
 /***************** Legacy functions *********************/
+#endif
 
 
 // WGL.
@@ -440,8 +501,10 @@ bool gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glPixelStoref);
     W32_LOAD_GL_1_1_PROC(glPixelStorei);
     W32_LOAD_GL_1_1_PROC(glReadBuffer);
+    W32_LOAD_GL_1_1_PROC(glDrawArrays);
 
 
+#if GL_USE_LEGACY_PROCS
     W32_LOAD_GL_1_1_PROC(glBegin);
     W32_LOAD_GL_1_1_PROC(glEnd);
     W32_LOAD_GL_1_1_PROC(glVertex3f);
@@ -452,6 +515,30 @@ bool gl_load(void) {
     W32_LOAD_GL_1_1_PROC(glTexEnvf);
     W32_LOAD_GL_1_1_PROC(glTexCoord2f);
     W32_LOAD_GL_1_1_PROC(glLoadIdentity);
+#endif
+
+    return true;
+}
+
+bool gl_load_extensions(void) {
+    GL_LOAD_PROC(glGenVertexArrays);
+    GL_LOAD_PROC(glBindVertexArray);
+    GL_LOAD_PROC(glGenBuffers);
+    GL_LOAD_PROC(glBindBuffer);
+    GL_LOAD_PROC(glBufferData);
+    GL_LOAD_PROC(glCompileShader);
+    GL_LOAD_PROC(glCreateProgram);
+    GL_LOAD_PROC(glCreateShader);
+    GL_LOAD_PROC(glDeleteProgram);
+    GL_LOAD_PROC(glDeleteShader);
+    GL_LOAD_PROC(glDetachShader);
+    GL_LOAD_PROC(glDisableVertexAttribArray);
+    GL_LOAD_PROC(glEnableVertexAttribArray);
+    GL_LOAD_PROC(glLinkProgram);
+    GL_LOAD_PROC(glShaderSource);
+    GL_LOAD_PROC(glUseProgram);
+    GL_LOAD_PROC(glAttachShader);
+    GL_LOAD_PROC(glVertexAttribPointer);
 
     return true;
 }
@@ -496,8 +583,7 @@ bool opengl_init(HWND window) {
         pixel_format.nVersion     = 1;
         pixel_format.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
         pixel_format.iPixelType   = PFD_TYPE_RGBA;
-        pixel_format.cColorBits   = 24;
-        pixel_format.cAlphaBits   = 8;
+        pixel_format.cColorBits   = 32;
         pixel_format.cDepthBits   = 24;
         pixel_format.cStencilBits = 8;
         pixel_format.iLayerType   = PFD_MAIN_PLANE;
@@ -546,16 +632,12 @@ bool opengl_init(HWND window) {
         WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
         WGL_DOUBLE_BUFFER_ARB,  GL_TRUE,
         WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
-        
-        // WGL_COLOR_BITS_ARB,     24,
-        // WGL_RED_BITS_ARB,       8,
-        // WGL_GREEN_BITS_ARB,     8,
-        // WGL_BLUE_BITS_ARB,      8,
-        // WGL_ALPHA_BITS_ARB,     8,
+
+        // WGL_COLOR_BITS_ARB,     32,
         // WGL_DEPTH_BITS_ARB,     24,
         // WGL_STENCIL_BITS_ARB,   8,
         // WGL_AUX_BUFFERS_ARB,    1,
-        
+
         0,  // Terminator.
     };
 
@@ -585,8 +667,11 @@ bool opengl_init(HWND window) {
     int gl_attribs[] = {
         WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
         WGL_CONTEXT_MINOR_VERSION_ARB, 3,
-        // WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+#if GL_USE_LEGACY_PROCS
+        // WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+#else
+        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+#endif
         0,
     };
 
@@ -602,6 +687,7 @@ bool opengl_init(HWND window) {
     }
 
     // Load modern GL functions...
+    gl_load_extensions();
     
     return true;
 }
@@ -627,6 +713,24 @@ struct Texture {
     int channels;
 };
 
+const char *vertex_shader_source = R"(
+#version 330 core
+layout (location = 0) in vec3 position;
+
+voit main() {
+    gl_Position = vec4(position.x, position.y, position.z, 1.0f);
+}
+)";
+
+const char *fragment_shader_source = R"(
+#version 330 core
+out vec4 final_color;
+
+void main() {
+    final_color = vec4(1, 1, 1, 1);
+}
+)";
+
 void render_update_texture(Texture *texture, unsigned char *data) {
     if (!texture->id) {
         glEnable(GL_TEXTURE_2D);
@@ -646,7 +750,7 @@ void render_update_texture(Texture *texture, unsigned char *data) {
     // @Todo: Add more formats.
 
     glBindTexture(GL_TEXTURE_2D, texture->id);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+    // glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     
     glTexImage2D(GL_TEXTURE_2D, 0, gl_source_format, 
                  texture->width, texture->height, 
@@ -699,6 +803,7 @@ static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM w
     return 0;
 }
 
+#if 0
 void rendering_2d(int w, int h) {
     glMatrixMode(GL_PROJECTION);
 
@@ -806,6 +911,7 @@ void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
 
     glEnd();
 }
+#endif
 
 int main(void) {
     HINSTANCE hInstance = GetModuleHandleW(null);
@@ -851,10 +957,12 @@ int main(void) {
     const GLubyte *gl_version  = glGetString(GL_VERSION);
     const GLubyte *gl_vendor   = glGetString(GL_VENDOR);
     const GLubyte *gl_renderer = glGetString(GL_RENDERER);
+    const GLubyte *gl_shader_version = glGetString(GL_SHADING_LANGUAGE_VERSION);
     
     print("OpenGL Version:  %s\n", gl_version);
     print("OpenGL Vendor:   %s\n", gl_vendor);
     print("OpenGL Renderer: %s\n", gl_renderer);
+    print("OpenGL Shading Language Version: %s\n", gl_shader_version);
 
     Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
     Texture cat  = texture_load_from_file("data/textures/cat.png");
@@ -864,6 +972,44 @@ int main(void) {
     ShowWindow(hwnd, SW_SHOW);
 
     HDC hdc = GetDC(hwnd);
+
+
+    float vertices[] = {
+        -0.5f, -0.5f, 0,
+         0.5f, -0.5f, 0,
+         0,     0.5f, 0,
+    };
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, size_of(vertices), vertices, GL_STATIC_DRAW);
+
+    GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex_shader, 1, &vertex_shader_source, null);
+    glCompileShader(vertex_shader);
+
+    GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment_shader, 1, &fragment_shader_source, null);
+    glCompileShader(fragment_shader);
+
+    GLuint shader_program = glCreateProgram();
+    glAttachShader(shader_program, vertex_shader);
+    glAttachShader(shader_program, fragment_shader);
+    glLinkProgram(shader_program);
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(float), (void *)0);
+    glEnableVertexAttribArray(0);
+
+    glUseProgram(shader_program);
+
 
     // glDisable(GL_DEPTH_TEST);
     // Depth is mapped as near=-1 and far 1.
@@ -888,13 +1034,14 @@ int main(void) {
 
         glViewport(0, 0, back_buffer_width, back_buffer_height);
         
-        rendering_2d(back_buffer_width, back_buffer_height);
+        // rendering_2d(back_buffer_width, back_buffer_height);
 
         // glClearColor(0.2f, 0.72f, 0.38f, 1);
         glClearColor(0.2f, 0.38f, 0.72f, 1);
         glClearDepth(1);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
+#if 0
         set_texture(&test);
 
         draw_quad(10, 10, 100, 100, Vector4{1,1,1,1});
@@ -927,6 +1074,9 @@ int main(void) {
         y1 = 400;
         draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
                   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1});
+#endif
+
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 
         BOOL ok = SwapBuffers(hdc);
         if (ok == FALSE) {
