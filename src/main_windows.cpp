@@ -262,6 +262,8 @@ typedef char          GLchar;
 #define GL_STATIC_DRAW 0x88E4
 #define GL_FRAGMENT_SHADER 0x8B30
 #define GL_VERTEX_SHADER   0x8B31
+#define GL_COMPILE_STATUS  0x8B81
+#define GL_LINK_STATUS     0x8B82
 
 typedef void APIENTRY GL_PROC(glGenVertexArrays) (GLsizei n, GLuint *arrays);
 typedef void APIENTRY GL_PROC(glBindVertexArray) (GLuint array);
@@ -281,6 +283,8 @@ typedef void APIENTRY GL_PROC(glShaderSource) (GLuint shader, GLsizei count, con
 typedef void APIENTRY GL_PROC(glUseProgram) (GLuint program);
 typedef void APIENTRY GL_PROC(glAttachShader) (GLuint program, GLuint shader);
 typedef void APIENTRY GL_PROC(glVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+typedef void APIENTRY GL_PROC(glGetShaderiv) (GLuint shader, GLenum pname, GLint *params);
+typedef void APIENTRY GL_PROC(glGetShaderInfoLog) (GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
 
 GL_PROC(glGenVertexArrays) *glGenVertexArrays;
 GL_PROC(glBindVertexArray) *glBindVertexArray;
@@ -300,6 +304,8 @@ GL_PROC(glShaderSource) *glShaderSource;
 GL_PROC(glUseProgram)   *glUseProgram;
 GL_PROC(glAttachShader) *glAttachShader;
 GL_PROC(glVertexAttribPointer) *glVertexAttribPointer;
+GL_PROC(glGetShaderiv) *glGetShaderiv;
+GL_PROC(glGetShaderInfoLog) *glGetShaderInfoLog;
 
 
 typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
@@ -539,6 +545,8 @@ bool gl_load_extensions(void) {
     GL_LOAD_PROC(glUseProgram);
     GL_LOAD_PROC(glAttachShader);
     GL_LOAD_PROC(glVertexAttribPointer);
+    GL_LOAD_PROC(glGetShaderiv);
+    GL_LOAD_PROC(glGetShaderInfoLog);
 
     return true;
 }
@@ -716,18 +724,24 @@ struct Texture {
 const char *vertex_shader_source = R"(
 #version 330 core
 layout (location = 0) in vec3 position;
+layout (location = 1) in vec4 color;
 
-voit main() {
+out vec4 vertex_color;
+
+void main() {
     gl_Position = vec4(position.x, position.y, position.z, 1.0f);
+    vertex_color = color;
 }
 )";
 
 const char *fragment_shader_source = R"(
 #version 330 core
+in vec4 vertex_color;
+
 out vec4 final_color;
 
 void main() {
-    final_color = vec4(1, 1, 1, 1);
+    final_color = vertex_color;
 }
 )";
 
@@ -974,11 +988,20 @@ int main(void) {
     HDC hdc = GetDC(hwnd);
 
 
-    float vertices[] = {
-        -0.5f, -0.5f, 0,
-         0.5f, -0.5f, 0,
-         0,     0.5f, 0,
+    struct Vertex {
+        Vector3 position;
+        Vector4 color;
     };
+
+    Vertex vertices[3];
+    vertices[0].position = {-0.5, -0.5f, 0};
+    vertices[0].color    = {1, 0, 0, 1};
+
+    vertices[1].position = {0.5, -0.5f, 0};
+    vertices[1].color    = {0, 1, 0, 1};
+    
+    vertices[2].position = {0, 0.5f, 0};
+    vertices[2].color    = {0, 0, 1, 1};
 
     GLuint vao;
     glGenVertexArrays(1, &vao);
@@ -993,9 +1016,23 @@ int main(void) {
     glShaderSource(vertex_shader, 1, &vertex_shader_source, null);
     glCompileShader(vertex_shader);
 
+    int  success;
+    char infoLog[512];
+    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
+    if(!success) {
+        glGetShaderInfoLog(vertex_shader, 512, NULL, infoLog);
+        print("Failed to compile vertex shader:\n%s\n", infoLog);
+    }
+
     GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragment_shader, 1, &fragment_shader_source, null);
     glCompileShader(fragment_shader);
+
+    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
+    if(!success) {
+        glGetShaderInfoLog(fragment_shader, 512, NULL, infoLog);
+        print("Failed to compile fragment shader:\n%s\n", infoLog);
+    }
 
     GLuint shader_program = glCreateProgram();
     glAttachShader(shader_program, vertex_shader);
@@ -1005,8 +1042,11 @@ int main(void) {
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * size_of(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * size_of(float), (void *)0);
     glEnableVertexAttribArray(0);
+    
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * size_of(float), (void *)12);
+    glEnableVertexAttribArray(1);
 
     glUseProgram(shader_program);
 
@@ -1076,6 +1116,9 @@ int main(void) {
                   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1});
 #endif
 
+        glUseProgram(shader_program);
+
+        glBindVertexArray(vao);
         glDrawArrays(GL_TRIANGLES, 0, 3);
 
         BOOL ok = SwapBuffers(hdc);
