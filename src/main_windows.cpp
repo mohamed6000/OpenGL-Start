@@ -285,6 +285,8 @@ typedef void APIENTRY GL_PROC(glAttachShader) (GLuint program, GLuint shader);
 typedef void APIENTRY GL_PROC(glVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
 typedef void APIENTRY GL_PROC(glGetShaderiv) (GLuint shader, GLenum pname, GLint *params);
 typedef void APIENTRY GL_PROC(glGetShaderInfoLog) (GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+typedef void APIENTRY GL_PROC(glUniformMatrix4fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
+typedef GLint APIENTRY GL_PROC(glGetUniformLocation) (GLuint program, const GLchar *name);
 
 GL_PROC(glGenVertexArrays) *glGenVertexArrays;
 GL_PROC(glBindVertexArray) *glBindVertexArray;
@@ -299,13 +301,15 @@ GL_PROC(glDeleteShader)    *glDeleteShader;
 GL_PROC(glDetachShader)    *glDetachShader;
 GL_PROC(glDisableVertexAttribArray) *glDisableVertexAttribArray;
 GL_PROC(glEnableVertexAttribArray)  *glEnableVertexAttribArray;
-GL_PROC(glLinkProgram)  *glLinkProgram;
-GL_PROC(glShaderSource) *glShaderSource;
-GL_PROC(glUseProgram)   *glUseProgram;
-GL_PROC(glAttachShader) *glAttachShader;
+GL_PROC(glLinkProgram)         *glLinkProgram;
+GL_PROC(glShaderSource)        *glShaderSource;
+GL_PROC(glUseProgram)          *glUseProgram;
+GL_PROC(glAttachShader)        *glAttachShader;
 GL_PROC(glVertexAttribPointer) *glVertexAttribPointer;
-GL_PROC(glGetShaderiv) *glGetShaderiv;
-GL_PROC(glGetShaderInfoLog) *glGetShaderInfoLog;
+GL_PROC(glGetShaderiv)         *glGetShaderiv;
+GL_PROC(glGetShaderInfoLog)    *glGetShaderInfoLog;
+GL_PROC(glUniformMatrix4fv)    *glUniformMatrix4fv;
+GL_PROC(glGetUniformLocation)  *glGetUniformLocation;
 
 
 typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
@@ -547,6 +551,8 @@ bool gl_load_extensions(void) {
     GL_LOAD_PROC(glVertexAttribPointer);
     GL_LOAD_PROC(glGetShaderiv);
     GL_LOAD_PROC(glGetShaderInfoLog);
+    GL_LOAD_PROC(glUniformMatrix4fv);
+    GL_LOAD_PROC(glGetUniformLocation);
 
     return true;
 }
@@ -705,6 +711,7 @@ int back_buffer_width;
 int back_buffer_height;
 
 GLuint last_bound_texture_id;
+GLuint projection_loc;
 
 struct Vector3 {
     float x, y, z;
@@ -728,8 +735,10 @@ layout (location = 1) in vec4 color;
 
 out vec4 vertex_color;
 
+uniform mat4 projection;
+
 void main() {
-    gl_Position = vec4(position.x, position.y, position.z, 1.0f);
+    gl_Position = projection * vec4(position.x, position.y, position.z, 1.0f);
     vertex_color = color;
 }
 )";
@@ -817,22 +826,17 @@ static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM w
     return 0;
 }
 
-#if 0
 void rendering_2d(int w, int h) {
-    glMatrixMode(GL_PROJECTION);
-
     float proj[16] = {
         2.0f/w,  0,       0,   0,
         0,       2.0f/h,  0,   0,
         0,       0,       1,   0,
        -1,      -1,       0,   1
     };
-    glLoadMatrixf(proj);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    glUniformMatrix4fv(projection_loc, 1, GL_FALSE, proj);
 }
 
+#if 0
 void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
     glBegin(GL_TRIANGLES);
 
@@ -994,13 +998,13 @@ int main(void) {
     };
 
     Vertex vertices[3];
-    vertices[0].position = {-0.5, -0.5f, 0};
+    vertices[0].position = {10, 10, 0};
     vertices[0].color    = {1, 0, 0, 1};
 
-    vertices[1].position = {0.5, -0.5f, 0};
+    vertices[1].position = {110, 10, 0};
     vertices[1].color    = {0, 1, 0, 1};
     
-    vertices[2].position = {0, 0.5f, 0};
+    vertices[2].position = {60, 110, 0};
     vertices[2].color    = {0, 0, 1, 1};
 
     GLuint vao;
@@ -1050,6 +1054,8 @@ int main(void) {
 
     glUseProgram(shader_program);
 
+    projection_loc = glGetUniformLocation(shader_program, "projection");
+
 
     // glDisable(GL_DEPTH_TEST);
     // Depth is mapped as near=-1 and far 1.
@@ -1074,7 +1080,7 @@ int main(void) {
 
         glViewport(0, 0, back_buffer_width, back_buffer_height);
         
-        // rendering_2d(back_buffer_width, back_buffer_height);
+        rendering_2d(back_buffer_width, back_buffer_height);
 
         // glClearColor(0.2f, 0.72f, 0.38f, 1);
         glClearColor(0.2f, 0.38f, 0.72f, 1);
