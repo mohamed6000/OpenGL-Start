@@ -259,7 +259,8 @@ typedef char          GLchar;
 // GLCOREARB.
 #define GL_SHADING_LANGUAGE_VERSION 0x8B8C
 #define GL_ARRAY_BUFFER 0x8892
-#define GL_STATIC_DRAW 0x88E4
+#define GL_STREAM_DRAW  0x88E0
+#define GL_STATIC_DRAW  0x88E4
 #define GL_FRAGMENT_SHADER 0x8B30
 #define GL_VERTEX_SHADER   0x8B31
 #define GL_COMPILE_STATUS  0x8B81
@@ -728,6 +729,15 @@ struct Texture {
     int channels;
 };
 
+struct Vertex {
+    Vector3 position;
+    Vector4 color;
+};
+
+const int MAX_VERTICES = 1024;
+static Vertex vertices[MAX_VERTICES];
+int vertex_count = 0;
+
 const char *vertex_shader_source = R"(
 #version 330 core
 layout (location = 0) in vec3 position;
@@ -836,100 +846,129 @@ void rendering_2d(int w, int h) {
     glUniformMatrix4fv(projection_loc, 1, GL_FALSE, proj);
 }
 
-#if 0
 void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
-    glBegin(GL_TRIANGLES);
+    assert(vertex_count <= (MAX_VERTICES - 6));
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(0, 1);
-    glVertex3f(x0, y0, 0);
+    Vertex *v = vertices + vertex_count;
+    v->position.x = x0;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(1, 1);
-    glVertex3f(x1, y0, 0);
-    
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(1, 0);
-    glVertex3f(x1, y1,  0);
+    v->position.x = x1;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(0, 1);
-    glVertex3f(x0, y0, 0);
-    
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(1, 0);
-    glVertex3f(x1, y1,  0);
+    v->position.x = x1;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(0, 0);
-    glVertex3f(x0, y1,  0);
+    v->position.x = x0;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
 
-    glEnd();
+    v->position.x = x1;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
+
+    v->position.x = x0;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
+
+    vertex_count += 6;
 }
 
 void draw_quad(float x0, float y0, float x1, float y1, 
                float u0, float v0, float u1, float v1,
                Vector4 c) {
-    glBegin(GL_TRIANGLES);
+    UNUSED(u0);
+    UNUSED(v0);
+    UNUSED(u1);
+    UNUSED(v1);
+    assert(vertex_count <= (MAX_VERTICES - 6));
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u0, v1);
-    glVertex3f(x0, y0, 0);
+    Vertex *v = vertices + vertex_count;
+    v->position.x = x0;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u1, v1);
-    glVertex3f(x1, y0, 0);
-    
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u1, v0);
-    glVertex3f(x1, y1,  0);
+    v->position.x = x1;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u0, v1);
-    glVertex3f(x0, y0, 0);
-    
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u1, v0);
-    glVertex3f(x1, y1,  0);
+    v->position.x = x1;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u0, v0);
-    glVertex3f(x0, y1,  0);
+    v->position.x = x0;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
 
-    glEnd();
+    v->position.x = x1;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
+
+    v->position.x = x0;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v += 1;
+
+    vertex_count += 6;
 }
 
 void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
                Vector4 c0, Vector4 c1, Vector4 c2, Vector4 c3) {
-    glBegin(GL_TRIANGLES);
+    assert(vertex_count <= (MAX_VERTICES - 6));
 
-    glColor4f(c0.x, c0.y, c0.z, c0.w);
-    glTexCoord2f(0, 1);
-    glVertex3f(p0.x, p0.y, p0.z);
+    Vertex *v = vertices + vertex_count;
+    v->position = p0;
+    v->color    = c0;
+    v += 1;
 
-    glColor4f(c1.x, c1.y, c1.z, c1.w);
-    glTexCoord2f(1, 1);
-    glVertex3f(p1.x, p1.y, p1.z);
-    
-    glColor4f(c2.x, c2.y, c2.z, c2.w);
-    glTexCoord2f(1, 0);
-    glVertex3f(p2.x, p2.y, p2.z);
+    v->position = p1;
+    v->color    = c1;
+    v += 1;
 
-    glColor4f(c0.x, c0.y, c0.z, c0.w);
-    glTexCoord2f(0, 1);
-    glVertex3f(p0.x, p0.y, p0.z);
+    v->position = p2;
+    v->color    = c2;
+    v += 1;
 
-    glColor4f(c2.x, c2.y, c2.z, c2.w);
-    glTexCoord2f(1, 0);
-    glVertex3f(p2.x, p2.y, p2.z);
+    v->position = p0;
+    v->color    = c0;
+    v += 1;
 
-    glColor4f(c3.x, c3.y, c3.z, c3.w);
-    glTexCoord2f(0, 0);
-    glVertex3f(p3.x, p3.y, p3.z);
+    v->position = p2;
+    v->color    = c2;
+    v += 1;
 
-    glEnd();
+    v->position = p3;
+    v->color    = c3;
+    v += 1;
+
+    vertex_count += 6;
 }
-#endif
 
 int main(void) {
     HINSTANCE hInstance = GetModuleHandleW(null);
@@ -992,21 +1031,6 @@ int main(void) {
     HDC hdc = GetDC(hwnd);
 
 
-    struct Vertex {
-        Vector3 position;
-        Vector4 color;
-    };
-
-    Vertex vertices[3];
-    vertices[0].position = {10, 10, 0};
-    vertices[0].color    = {1, 0, 0, 1};
-
-    vertices[1].position = {110, 10, 0};
-    vertices[1].color    = {0, 1, 0, 1};
-    
-    vertices[2].position = {60, 110, 0};
-    vertices[2].color    = {0, 0, 1, 1};
-
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -1014,7 +1038,6 @@ int main(void) {
     GLuint vbo;
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, size_of(vertices), vertices, GL_STATIC_DRAW);
 
     GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertex_shader, 1, &vertex_shader_source, null);
@@ -1024,7 +1047,7 @@ int main(void) {
     char infoLog[512];
     glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
     if(!success) {
-        glGetShaderInfoLog(vertex_shader, 512, NULL, infoLog);
+        glGetShaderInfoLog(vertex_shader, size_of(infoLog), NULL, infoLog);
         print("Failed to compile vertex shader:\n%s\n", infoLog);
     }
 
@@ -1034,7 +1057,7 @@ int main(void) {
 
     glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
     if(!success) {
-        glGetShaderInfoLog(fragment_shader, 512, NULL, infoLog);
+        glGetShaderInfoLog(fragment_shader, size_of(infoLog), NULL, infoLog);
         print("Failed to compile fragment shader:\n%s\n", infoLog);
     }
 
@@ -1087,15 +1110,14 @@ int main(void) {
         glClearDepth(1);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-#if 0
-        set_texture(&test);
+        // set_texture(&test);
 
         draw_quad(10, 10, 100, 100, Vector4{1,1,1,1});
 
         draw_quad(Vector3{100,100,0}, Vector3{250,100,0}, Vector3{250,250,0}, Vector3{100,250,0},
                   Vector4{1,0,0,1},   Vector4{0,1,0,1},   Vector4{0,0,1,1},   Vector4{0,1,0,1});
 
-        set_texture(&cat);
+        // set_texture(&cat);
 
         draw_quad(500, 300, 650, 400, 
                   0, 0, 1, 0.5f,
@@ -1103,7 +1125,7 @@ int main(void) {
 
         float depth,x0,y0,x1,y1;
 
-        set_texture(&test);
+        // set_texture(&test);
         depth = 0;
         x0 = 200;
         y0 = 200;
@@ -1112,7 +1134,7 @@ int main(void) {
         draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
                   Vector4{1,0,0,1},   Vector4{0,1,0,1},   Vector4{0,0,1,1},   Vector4{0,1,0,1});
 
-        set_texture(&cat);
+        // set_texture(&cat);
         depth = -0.2f;
         x0 = 400;
         y0 = 300;
@@ -1120,12 +1142,14 @@ int main(void) {
         y1 = 400;
         draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
                   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1});
-#endif
 
-        glUseProgram(shader_program);
 
-        glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, size_of(vertices[0]) * vertex_count, vertices, GL_STREAM_DRAW);
+
+        glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+
+        vertex_count = 0;
 
         BOOL ok = SwapBuffers(hdc);
         if (ok == FALSE) {
