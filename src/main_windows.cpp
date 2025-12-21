@@ -6,6 +6,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define VC_EXTRALEAN
 #include <windows.h>
+#include <math.h>
 
 #include "stb_image.h"
 
@@ -944,10 +945,6 @@ void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
 void draw_quad(float x0, float y0, float x1, float y1, 
                float u0, float v0, float u1, float v1,
                Vector4 c) {
-    UNUSED(u0);
-    UNUSED(v0);
-    UNUSED(u1);
-    UNUSED(v1);
     assert(vertex_count <= (MAX_VERTICES - 6));
 
     Vertex *v = vertices + vertex_count;
@@ -1044,6 +1041,24 @@ void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
     v += 1;
 
     vertex_count += 6;
+}
+
+inline Vector2 rotate2D(Vector2 v, Vector2 c, float a) {
+    Vector2 result;
+
+    float ca = cosf(a);
+    float sa = sinf(a);
+
+    v.x -= c.x;
+    v.y -= c.y;
+
+    result.x = v.x*ca - v.y*sa;
+    result.y = v.x*sa + v.y*ca;
+
+    result.x += c.x;
+    result.y += c.y;
+
+    return result;
 }
 
 int main(void) {
@@ -1172,7 +1187,25 @@ int main(void) {
     back_buffer_width  = client_rect.right  - client_rect.left;
     back_buffer_height = client_rect.bottom - client_rect.top;
 
+    Vector2 red_cat_pos0 = {400, 300};
+    Vector2 red_cat_pos1 = {500, 400};
+    float cat_rot_angle = 0;
+
+    float64 one_over_frequency = 1.0;
+    LARGE_INTEGER large_frequency;
+    if (QueryPerformanceFrequency(&large_frequency)) {
+        one_over_frequency = 1.0 / (float64)large_frequency.QuadPart;
+    }
+
+    LARGE_INTEGER last_counter = {};
+    // QueryPerformanceCounter(&last_counter);
+
     while (!should_quit) {
+        LARGE_INTEGER wall_counter;
+        QueryPerformanceCounter(&wall_counter);
+        float current_dt = (float)((wall_counter.QuadPart - last_counter.QuadPart) * one_over_frequency);
+        last_counter = wall_counter;
+
         MSG msg;
         while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
@@ -1214,12 +1247,28 @@ int main(void) {
 
         set_texture(&cat);
         depth = -0.2f;
-        x0 = 400;
-        y0 = 300;
-        x1 = 500;
-        y1 = 400;
-        draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
-                  Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1});
+
+        Vector2 center = {
+            (red_cat_pos0.x+red_cat_pos1.x)/2,
+            (red_cat_pos0.y+red_cat_pos1.y)/2,
+        };
+
+        cat_rot_angle += current_dt * (float)TAU;
+        if (cat_rot_angle >= 360.0f) cat_rot_angle = 0;
+
+        Vector2 p0 = rotate2D(Vector2{red_cat_pos0.x,red_cat_pos0.y}, center, cat_rot_angle);
+        Vector2 p1 = rotate2D(Vector2{red_cat_pos1.x,red_cat_pos0.y}, center, cat_rot_angle);
+        Vector2 p2 = rotate2D(Vector2{red_cat_pos1.x,red_cat_pos1.y}, center, cat_rot_angle);
+        Vector2 p3 = rotate2D(Vector2{red_cat_pos0.x,red_cat_pos1.y}, center, cat_rot_angle);
+
+        draw_quad(Vector3{p0.x, p0.y ,depth},
+                  Vector3{p1.x, p1.y ,depth}, 
+                  Vector3{p2.x, p2.y ,depth}, 
+                  Vector3{p3.x, p3.y ,depth}, 
+                  Vector4{1,1,1,1},
+                  Vector4{1,1,1,1},
+                  Vector4{1,1,1,1},
+                  Vector4{1,1,1,1});
 
 
         frame_flush();
