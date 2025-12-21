@@ -239,6 +239,10 @@ typedef char          GLchar;
 #define GL_TEXTURE_WRAP_S     0x2802
 #define GL_TEXTURE_WRAP_T     0x2803
 
+/* TextureWrapMode */
+#define GL_CLAMP  0x2900
+#define GL_REPEAT 0x2901
+
 /* StencilOp */
 #define GL_KEEP    0x1E00
 #define GL_REPLACE 0x1E01
@@ -265,6 +269,7 @@ typedef char          GLchar;
 #define GL_VERTEX_SHADER   0x8B31
 #define GL_COMPILE_STATUS  0x8B81
 #define GL_LINK_STATUS     0x8B82
+#define GL_TEXTURE0 0x84C0
 
 typedef void APIENTRY GL_PROC(glGenVertexArrays) (GLsizei n, GLuint *arrays);
 typedef void APIENTRY GL_PROC(glBindVertexArray) (GLuint array);
@@ -288,6 +293,8 @@ typedef void APIENTRY GL_PROC(glGetShaderiv) (GLuint shader, GLenum pname, GLint
 typedef void APIENTRY GL_PROC(glGetShaderInfoLog) (GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
 typedef void APIENTRY GL_PROC(glUniformMatrix4fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 typedef GLint APIENTRY GL_PROC(glGetUniformLocation) (GLuint program, const GLchar *name);
+typedef void APIENTRY GL_PROC(glActiveTexture) (GLenum texture);
+typedef void APIENTRY GL_PROC(glUniform1i) (GLint location, GLint v0);
 
 GL_PROC(glGenVertexArrays) *glGenVertexArrays;
 GL_PROC(glBindVertexArray) *glBindVertexArray;
@@ -311,6 +318,8 @@ GL_PROC(glGetShaderiv)         *glGetShaderiv;
 GL_PROC(glGetShaderInfoLog)    *glGetShaderInfoLog;
 GL_PROC(glUniformMatrix4fv)    *glUniformMatrix4fv;
 GL_PROC(glGetUniformLocation)  *glGetUniformLocation;
+GL_PROC(glActiveTexture)       *glActiveTexture;
+GL_PROC(glUniform1i)           *glUniform1i;
 
 
 typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
@@ -554,6 +563,8 @@ bool gl_load_extensions(void) {
     GL_LOAD_PROC(glGetShaderInfoLog);
     GL_LOAD_PROC(glUniformMatrix4fv);
     GL_LOAD_PROC(glGetUniformLocation);
+    GL_LOAD_PROC(glActiveTexture);
+    GL_LOAD_PROC(glUniform1i);
 
     return true;
 }
@@ -711,8 +722,14 @@ bool should_quit = false;
 int back_buffer_width;
 int back_buffer_height;
 
+GLuint vbo;
 GLuint last_bound_texture_id;
+GLuint shader_program;
 GLuint projection_loc;
+
+struct Vector2 {
+    float x, y;
+};
 
 struct Vector3 {
     float x, y, z;
@@ -732,6 +749,7 @@ struct Texture {
 struct Vertex {
     Vector3 position;
     Vector4 color;
+    Vector2 uv;
 };
 
 const int MAX_VERTICES = 1024;
@@ -740,29 +758,46 @@ int vertex_count = 0;
 
 const char *vertex_shader_source = R"(
 #version 330 core
-layout (location = 0) in vec3 position;
-layout (location = 1) in vec4 color;
+layout (location = 0) in vec3 in_position;
+layout (location = 1) in vec4 in_color;
+layout (location = 2) in vec2 in_uv;
 
-out vec4 vertex_color;
+out vec4 color;
+out vec2 uv;
 
 uniform mat4 projection;
 
 void main() {
-    gl_Position = projection * vec4(position.x, position.y, position.z, 1.0f);
-    vertex_color = color;
+    gl_Position = projection * vec4(in_position.x, in_position.y, in_position.z, 1.0f);
+    color       = in_color;
+    uv          = in_uv;
 }
 )";
 
 const char *fragment_shader_source = R"(
 #version 330 core
-in vec4 vertex_color;
-
 out vec4 final_color;
 
+in vec4 color;
+in vec2 uv;
+
+uniform sampler2D texture_map;
+
 void main() {
-    final_color = vertex_color;
+    final_color = texture(texture_map, uv) * color;
 }
 )";
+
+void frame_flush(void) {
+    if (!vertex_count) return;
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, size_of(vertices[0]) * vertex_count, vertices, GL_STREAM_DRAW);
+
+    glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+
+    vertex_count = 0;
+}
 
 void render_update_texture(Texture *texture, unsigned char *data) {
     if (!texture->id) {
@@ -781,17 +816,17 @@ void render_update_texture(Texture *texture, unsigned char *data) {
     }
 
     // @Todo: Add more formats.
-
     glBindTexture(GL_TEXTURE_2D, texture->id);
-    // glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     
     glTexImage2D(GL_TEXTURE_2D, 0, gl_source_format, 
                  texture->width, texture->height, 
                  0, gl_dest_format, GL_UNSIGNED_BYTE, 
                  data);
 
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 Texture texture_load_from_file(const char *file_path) {
@@ -809,6 +844,11 @@ Texture texture_load_from_file(const char *file_path) {
 
 void set_texture(Texture *texture) {
     if (last_bound_texture_id != texture->id) {
+        frame_flush();
+        GLint texture_handle = glGetUniformLocation(shader_program, "texture_map");
+        glUniform1i(texture_handle, 0);
+        
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture->id);
     }
 
@@ -854,36 +894,48 @@ void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
     v->position.y = y0;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = 0;
+    v->uv.y       = 1;
     v += 1;
 
     v->position.x = x1;
     v->position.y = y0;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = 1;
+    v->uv.y       = 1;
     v += 1;
 
     v->position.x = x1;
     v->position.y = y1;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = 1;
+    v->uv.y       = 0;
     v += 1;
 
     v->position.x = x0;
     v->position.y = y0;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = 0;
+    v->uv.y       = 1;
     v += 1;
 
     v->position.x = x1;
     v->position.y = y1;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = 1;
+    v->uv.y       = 0;
     v += 1;
 
     v->position.x = x0;
     v->position.y = y1;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = 0;
+    v->uv.y       = 0;
     v += 1;
 
     vertex_count += 6;
@@ -903,36 +955,48 @@ void draw_quad(float x0, float y0, float x1, float y1,
     v->position.y = y0;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = u0;
+    v->uv.y       = v1;
     v += 1;
 
     v->position.x = x1;
     v->position.y = y0;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = u1;
+    v->uv.y       = v1;
     v += 1;
 
     v->position.x = x1;
     v->position.y = y1;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = u1;
+    v->uv.y       = v0;
     v += 1;
 
     v->position.x = x0;
     v->position.y = y0;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = u0;
+    v->uv.y       = v1;
     v += 1;
 
     v->position.x = x1;
     v->position.y = y1;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = u1;
+    v->uv.y       = v0;
     v += 1;
 
     v->position.x = x0;
     v->position.y = y1;
     v->position.z = 0;
     v->color      = c;
+    v->uv.x       = u0;
+    v->uv.y       = v0;
     v += 1;
 
     vertex_count += 6;
@@ -945,26 +1009,38 @@ void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
     Vertex *v = vertices + vertex_count;
     v->position = p0;
     v->color    = c0;
+    v->uv.x     = 0;
+    v->uv.y     = 1;
     v += 1;
 
     v->position = p1;
     v->color    = c1;
+    v->uv.x     = 1;
+    v->uv.y     = 1;
     v += 1;
 
     v->position = p2;
     v->color    = c2;
+    v->uv.x     = 1;
+    v->uv.y     = 0;
     v += 1;
 
     v->position = p0;
     v->color    = c0;
+    v->uv.x     = 0;
+    v->uv.y     = 1;
     v += 1;
 
     v->position = p2;
     v->color    = c2;
+    v->uv.x     = 1;
+    v->uv.y     = 0;
     v += 1;
 
     v->position = p3;
     v->color    = c3;
+    v->uv.x     = 0;
+    v->uv.y     = 0;
     v += 1;
 
     vertex_count += 6;
@@ -1035,7 +1111,6 @@ int main(void) {
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
 
-    GLuint vbo;
     glGenBuffers(1, &vbo);
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
@@ -1061,7 +1136,7 @@ int main(void) {
         print("Failed to compile fragment shader:\n%s\n", infoLog);
     }
 
-    GLuint shader_program = glCreateProgram();
+    shader_program = glCreateProgram();
     glAttachShader(shader_program, vertex_shader);
     glAttachShader(shader_program, fragment_shader);
     glLinkProgram(shader_program);
@@ -1069,11 +1144,14 @@ int main(void) {
     glDeleteShader(vertex_shader);
     glDeleteShader(fragment_shader);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 7 * size_of(float), (void *)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)0);
     glEnableVertexAttribArray(0);
     
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 7 * size_of(float), (void *)12);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)12);
     glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)28);
+    glEnableVertexAttribArray(2);
 
     glUseProgram(shader_program);
 
@@ -1110,14 +1188,14 @@ int main(void) {
         glClearDepth(1);
         glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-        // set_texture(&test);
+        set_texture(&test);
 
         draw_quad(10, 10, 100, 100, Vector4{1,1,1,1});
 
         draw_quad(Vector3{100,100,0}, Vector3{250,100,0}, Vector3{250,250,0}, Vector3{100,250,0},
                   Vector4{1,0,0,1},   Vector4{0,1,0,1},   Vector4{0,0,1,1},   Vector4{0,1,0,1});
 
-        // set_texture(&cat);
+        set_texture(&cat);
 
         draw_quad(500, 300, 650, 400, 
                   0, 0, 1, 0.5f,
@@ -1125,7 +1203,7 @@ int main(void) {
 
         float depth,x0,y0,x1,y1;
 
-        // set_texture(&test);
+        set_texture(&test);
         depth = 0;
         x0 = 200;
         y0 = 200;
@@ -1134,7 +1212,7 @@ int main(void) {
         draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
                   Vector4{1,0,0,1},   Vector4{0,1,0,1},   Vector4{0,0,1,1},   Vector4{0,1,0,1});
 
-        // set_texture(&cat);
+        set_texture(&cat);
         depth = -0.2f;
         x0 = 400;
         y0 = 300;
@@ -1144,12 +1222,7 @@ int main(void) {
                   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1});
 
 
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, size_of(vertices[0]) * vertex_count, vertices, GL_STREAM_DRAW);
-
-        glDrawArrays(GL_TRIANGLES, 0, vertex_count);
-
-        vertex_count = 0;
+        frame_flush();
 
         BOOL ok = SwapBuffers(hdc);
         if (ok == FALSE) {
