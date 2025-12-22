@@ -1043,17 +1043,62 @@ void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
     vertex_count += 6;
 }
 
-inline Vector2 rotate2D(Vector2 v, Vector2 c, float a) {
+void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
+               Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
+               Vector4 color) {
+    assert(vertex_count <= (MAX_VERTICES - 6));
+
+    Vertex *v = vertices + vertex_count;
+    v->position = p0;
+    v->color    = color;
+    v->uv.x     = uv0.x;
+    v->uv.y     = uv3.y;
+    v += 1;
+
+    v->position = p1;
+    v->color    = color;
+    v->uv.x     = uv1.x;
+    v->uv.y     = uv2.y;
+    v += 1;
+
+    v->position = p2;
+    v->color    = color;
+    v->uv.x     = uv2.x;
+    v->uv.y     = uv1.y;
+    v += 1;
+
+    v->position = p0;
+    v->color    = color;
+    v->uv.x     = uv0.x;
+    v->uv.y     = uv3.y;
+    v += 1;
+
+    v->position = p2;
+    v->color    = color;
+    v->uv.x     = uv2.x;
+    v->uv.y     = uv1.y;
+    v += 1;
+
+    v->position = p3;
+    v->color    = color;
+    v->uv.x     = uv3.x;
+    v->uv.y     = uv0.y;
+    v += 1;
+
+    vertex_count += 6;
+}
+
+inline Vector2 rotate_z(Vector2 v, Vector2 c, float theta) {
     Vector2 result;
 
-    float ca = cosf(a);
-    float sa = sinf(a);
+    float ct = cosf(theta);
+    float st = sinf(theta);
 
     v.x -= c.x;
     v.y -= c.y;
 
-    result.x = v.x*ca - v.y*sa;
-    result.y = v.x*sa + v.y*ca;
+    result.x = v.x*ct - v.y*st;
+    result.y = v.x*st + v.y*ct;
 
     result.x += c.x;
     result.y += c.y;
@@ -1187,9 +1232,14 @@ int main(void) {
     back_buffer_width  = client_rect.right  - client_rect.left;
     back_buffer_height = client_rect.bottom - client_rect.top;
 
-    Vector2 red_cat_pos0 = {400, 300};
-    Vector2 red_cat_pos1 = {500, 400};
+    Vector2 cat_pos0 = {400, 300};
+    Vector2 cat_pos1 = {500, 400};
     float cat_rot_angle = 0;
+
+    Vector3 red_cat_p0 = {500, 300, 0};
+    Vector3 red_cat_p1 = {650, 300, 0};
+    Vector3 red_cat_p2 = {650, 400, 0};
+    Vector3 red_cat_p3 = {500, 400, 0};
 
     float64 one_over_frequency = 1.0;
     LARGE_INTEGER large_frequency;
@@ -1198,7 +1248,7 @@ int main(void) {
     }
 
     LARGE_INTEGER last_counter = {};
-    // QueryPerformanceCounter(&last_counter);
+    QueryPerformanceCounter(&last_counter);
 
     while (!should_quit) {
         LARGE_INTEGER wall_counter;
@@ -1230,8 +1280,20 @@ int main(void) {
 
         set_texture(&cat);
 
-        draw_quad(500, 300, 650, 400, 
-                  0, 0, 1, 0.5f,
+        Vector3 center = {
+            (red_cat_p0.x+red_cat_p1.x)/2,
+            0,
+            (red_cat_p0.z+red_cat_p3.z)/2,
+        };
+
+        draw_quad(red_cat_p0, 
+                  red_cat_p1, 
+                  red_cat_p2, 
+                  red_cat_p3,
+                  Vector2{0,0}, 
+                  Vector2{1,0},
+                  Vector2{1,0.5f},
+                  Vector2{0,0.5f},
                   Vector4{1,0,0,1});
 
         float depth,x0,y0,x1,y1;
@@ -1248,18 +1310,18 @@ int main(void) {
         set_texture(&cat);
         depth = -0.2f;
 
-        Vector2 center = {
-            (red_cat_pos0.x+red_cat_pos1.x)/2,
-            (red_cat_pos0.y+red_cat_pos1.y)/2,
+        Vector2 center_2d = {
+            (cat_pos0.x+cat_pos1.x)/2,
+            (cat_pos0.y+cat_pos1.y)/2,
         };
 
         cat_rot_angle += current_dt * (float)TAU;
         if (cat_rot_angle >= 360.0f) cat_rot_angle = 0;
 
-        Vector2 p0 = rotate2D(Vector2{red_cat_pos0.x,red_cat_pos0.y}, center, cat_rot_angle);
-        Vector2 p1 = rotate2D(Vector2{red_cat_pos1.x,red_cat_pos0.y}, center, cat_rot_angle);
-        Vector2 p2 = rotate2D(Vector2{red_cat_pos1.x,red_cat_pos1.y}, center, cat_rot_angle);
-        Vector2 p3 = rotate2D(Vector2{red_cat_pos0.x,red_cat_pos1.y}, center, cat_rot_angle);
+        Vector2 p0 = rotate_z(Vector2{cat_pos0.x,cat_pos0.y}, center_2d, cat_rot_angle);
+        Vector2 p1 = rotate_z(Vector2{cat_pos1.x,cat_pos0.y}, center_2d, cat_rot_angle);
+        Vector2 p2 = rotate_z(Vector2{cat_pos1.x,cat_pos1.y}, center_2d, cat_rot_angle);
+        Vector2 p3 = rotate_z(Vector2{cat_pos0.x,cat_pos1.y}, center_2d, cat_rot_angle);
 
         draw_quad(Vector3{p0.x, p0.y ,depth},
                   Vector3{p1.x, p1.y ,depth}, 
