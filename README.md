@@ -1,9 +1,10 @@
 # OpenGL Starter Code
 
 Basic OpenGL loading and initialization, useful for renderers and game engines.
+Supports Modern and fixed function pipelines.
 
 ## Supported platforms
-Windows
+Windows, Linux
 
 ## Screenshots
 
