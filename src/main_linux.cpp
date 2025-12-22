@@ -7,7 +7,6 @@
 #include "stb_image.h"
 
 
-// #include <GL/gl.h>
 #define GL_PROC(ident) CONCAT(ident,PROC)
 
 #ifndef APIENTRY
@@ -321,8 +320,23 @@ GL_PROC(glLoadIdentity)*glLoadIdentity;
 /***************** Legacy functions *********************/
 
 
+// GLX.
 typedef struct __GLXcontextRec *GLXContext;
+typedef struct __GLXFBConfigRec *GLXFBConfig;
 typedef XID GLXDrawable;
+
+
+#define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
+#define GLX_CONTEXT_MINOR_VERSION_ARB 0x2092
+#define GLX_CONTEXT_FLAGS_ARB         0x2094
+#define GLX_CONTEXT_PROFILE_MASK_ARB  0x9126
+
+#define GLX_CONTEXT_DEBUG_BIT_ARB              0x0001
+#define GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB 0x0002
+
+#define GLX_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
+#define GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
 
 /*
  * Tokens for glXChooseVisual and glXGetConfig:
@@ -345,6 +359,15 @@ typedef XID GLXDrawable;
 #define GLX_ACCUM_BLUE_SIZE  16
 #define GLX_ACCUM_ALPHA_SIZE 17
 
+#define GLX_X_VISUAL_TYPE 0x22
+#define GLX_WINDOW_BIT    0x00000001
+#define GLX_RGBA_BIT      0x00000001
+#define GLX_TRUE_COLOR    0x8002
+#define GLX_DRAWABLE_TYPE 0x8010
+#define GLX_RENDER_TYPE   0x8011
+#define GLX_X_RENDERABLE  0x8012
+#define GLX_RGBA_TYPE     0x8014
+
 /*
  * GLX 1.4 and later:
  */
@@ -362,6 +385,12 @@ typedef void GL_PROC(glXSwapBuffers)( Display *dpy, GLXDrawable drawable );
 typedef void (*__GLXextFuncPtr)(void);
 typedef __GLXextFuncPtr GL_PROC(glXGetProcAddress) (const GLubyte *);
 
+typedef GLXContext GL_PROC(glXCreateContextAttribsARB)(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int *attrib_list);
+typedef GLXFBConfig *GL_PROC(glXChooseFBConfig)(Display *dpy, int screen, const int *attribList, int *nitems);
+typedef int GL_PROC(glXGetFBConfigAttrib)(Display *dpy, GLXFBConfig config, int attribute, int *value);
+typedef XVisualInfo *GL_PROC(glXGetVisualFromFBConfig)(Display *dpy, GLXFBConfig config);
+typedef const char *GL_PROC(glXQueryExtensionsString)(Display *dpy, int screen);
+
 static GL_PROC(glXQueryVersion)   *glXQueryVersion;
 static GL_PROC(glXChooseVisual)   *glXChooseVisual;
 static GL_PROC(glXCreateContext)  *glXCreateContext;
@@ -369,6 +398,11 @@ static GL_PROC(glXDestroyContext) *glXDestroyContext;
 static GL_PROC(glXMakeCurrent)    *glXMakeCurrent;
 static GL_PROC(glXSwapBuffers)    *glXSwapBuffers;
 static GL_PROC(glXGetProcAddress) *glXGetProcAddress;
+static GL_PROC(glXCreateContextAttribsARB) *glXCreateContextAttribsARB;
+static GL_PROC(glXChooseFBConfig) *glXChooseFBConfig;
+static GL_PROC(glXGetFBConfigAttrib) *glXGetFBConfigAttrib;
+static GL_PROC(glXGetVisualFromFBConfig) *glXGetVisualFromFBConfig;
+static GL_PROC(glXQueryExtensionsString) *glXQueryExtensionsString;
 
 #define GLX_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(glx_module, #ident)
 #define GL1_LOAD_PROC(ident) ident = (GL_PROC(ident) *)glXGetProcAddress((const GLubyte *)#ident)
@@ -396,11 +430,12 @@ bool glx_load(void) {
         GLX_LOAD_PROC(glXGetProcAddress);
     }
 
-
     return true;
 }
 
 bool gl_load(void) {
+    // @Todo: Fallback to dlsym when glXGetProcAddress Fails?
+
     GL1_LOAD_PROC(glGetString);
     GL1_LOAD_PROC(glClear);
     GL1_LOAD_PROC(glClearColor);
@@ -448,6 +483,38 @@ bool gl_load(void) {
     GL1_LOAD_PROC(glLoadIdentity);
 
     return true;
+}
+
+// Helper to check for extension string presence.  Adapted from:
+//   http://www.opengl.org/resources/features/OGLextensions/
+static bool isExtensionSupported(const char *extList, const char *extension) {
+    const char *start;
+    const char *where, *terminator;
+
+    /* Extension names should not have spaces. */
+    where = strchr(extension, ' ');
+    if (where || *extension == '\0')
+    return false;
+
+    /* It takes a bit of care to be fool-proof about parsing the
+     OpenGL extensions string. Don't be fooled by sub-strings,
+     etc. */
+    for (start=extList;;) {
+        where = strstr(start, extension);
+
+        if (!where)
+            break;
+
+        terminator = where + strlen(extension);
+
+        if ( where == start || *(where - 1) == ' ' )
+            if ( *terminator == ' ' || *terminator == '\0' )
+                return true;
+
+        start = terminator;
+    }
+
+    return false;
 }
 
 struct Vector3 {
@@ -637,39 +704,84 @@ int main(void) {
 
     if (!glx_load()) return 0;
 
+    // Get a matching FB config.
+    int visual_attributes[] = {
+        GLX_X_RENDERABLE,   True,
+        GLX_DRAWABLE_TYPE,  GLX_WINDOW_BIT,
+        GLX_RENDER_TYPE,    GLX_RGBA_BIT,
+        GLX_X_VISUAL_TYPE,  GLX_TRUE_COLOR,
+        GLX_RED_SIZE,       8,
+        GLX_GREEN_SIZE,     8,
+        GLX_BLUE_SIZE,      8,
+        GLX_ALPHA_SIZE,     8,
+        GLX_DEPTH_SIZE,     24,
+        GLX_STENCIL_SIZE,   8,
+        GLX_DOUBLEBUFFER,   True,
+        // GLX_SAMPLE_BUFFERS, 1,
+        // GLX_SAMPLES,        4,
+        None,
+    };
+
     // GLX version.
-    GLint majorGLX, minorGLX;
-    glXQueryVersion(display, &majorGLX, &minorGLX);
-    if ((majorGLX == 1) && (minorGLX < 2)) {
-        write_string("You need at least GLX 1.2.\n", true);
+    GLint glx_major, glx_minor;
+    glXQueryVersion(display, &glx_major, &glx_minor);
+    if (((glx_major == 1) && (glx_minor < 3)) || (glx_major < 1)) {
+        write_string("Invalid GLX version: You need at least GLX 1.3.\n", true);
         return 0;
     }
 
-    print("GLX Version: %d.%d\n", majorGLX, minorGLX);
+    print("GLX Version: %d.%d\n", glx_major, glx_minor);
+
+    GL1_LOAD_PROC(glXCreateContextAttribsARB);
+    GL1_LOAD_PROC(glXChooseFBConfig);
+    GL1_LOAD_PROC(glXGetFBConfigAttrib);
+    GL1_LOAD_PROC(glXGetVisualFromFBConfig);
+    GL1_LOAD_PROC(glXQueryExtensionsString);
 
     int screen_id   = XDefaultScreen(display);
     u64 black_color = BlackPixel(display, screen_id);
     u64 white_color = WhitePixel(display, screen_id);
 
-    // Choose visual.
-    GLint glx_attributes[] = {
-        GLX_RGBA,
-        GLX_DOUBLEBUFFER,
-        GLX_DEPTH_SIZE,    24,
-        GLX_STENCIL_SIZE,  8,
-        GLX_RED_SIZE,      8,
-        GLX_GREEN_SIZE,    8,
-        GLX_BLUE_SIZE,     8,
-        GLX_SAMPLE_BUFFERS,0,
-        GLX_SAMPLES,       0,
-        None
-    };
-
-    XVisualInfo *visual_info = glXChooseVisual(display, screen_id, glx_attributes);
-    if (!visual_info) {
-        write_string("Failed to glXChooseVisual.\n", true);
+    // Getting matching framebuffer configs.
+    int fb_count;
+    GLXFBConfig *fb_configs = glXChooseFBConfig(display, screen_id, visual_attributes, &fb_count);
+    if (!fb_configs) {
+        write_string("Failed to glXChooseFBConfig.\n", true);
         return 0;
     }
+
+    print("Found %d matching FB configs.\n", fb_count);
+
+    int best_fbc_index  = -1;
+    int worst_fbc_index = -1;
+    int best_sample_count  = -1;
+    int worst_sample_count = 999;
+
+    for (int index = 0; index < fb_count; index++) {
+        XVisualInfo *vi = glXGetVisualFromFBConfig(display, fb_configs[index]);
+        if (vi) {
+            int sample_buffer, sample_count;
+            glXGetFBConfigAttrib(display, fb_configs[index], GLX_SAMPLE_BUFFERS, &sample_buffer);
+            glXGetFBConfigAttrib(display, fb_configs[index], GLX_SAMPLES, &sample_count);
+
+            if ((best_fbc_index < 0) || sample_buffer && (sample_count > best_sample_count)) {
+                best_fbc_index = index;
+                best_sample_count = sample_count;
+            }
+
+            if ((worst_fbc_index < 0) || !sample_buffer && (sample_count < worst_sample_count)) {
+                worst_fbc_index = index;
+                worst_sample_count = sample_count;
+            }
+            XFree(vi);
+        }
+    }
+
+    GLXFBConfig best_config = fb_configs[best_fbc_index];
+    XFree(fb_configs);
+
+    // Get visual.
+    XVisualInfo *visual_info = glXGetVisualFromFBConfig(display, best_config);
 
     Window parent_window = RootWindow(display, screen_id);
 
@@ -693,8 +805,14 @@ int main(void) {
                                   visual_info->visual,
                                   CWBackPixel|CWColormap|CWBorderPixel|CWEventMask,
                                   &window_attributes);
+    if (!window) {
+        write_string("Failed to create window.\n", true);
+        return 0;
+    }
 
-    const char *title = "Window Test (Linux)";
+    XFree(visual_info);
+
+    const char *title = "OpenGL (Linux)";
     Atom net_wm_name = XInternAtom(display, "_NET_WM_NAME", False);
     Atom utf8_string = XInternAtom(display, "UTF8_STRING",  False);
 
@@ -710,9 +828,27 @@ int main(void) {
         write_string("Failed to XSetWMProtocols.\n", true);
     }
 
-    GLXContext gl_context = glXCreateContext(display, visual_info, null, True);
+    const char *glx_extensions = glXQueryExtensionsString(display, screen_id);
+    if (!isExtensionSupported(glx_extensions, "GLX_ARB_create_context")) {
+        write_string("glXCreateContextAttribsARB() not found.\n", true);
+        return 0;
+    }
+
+    int context_attributes[] = {
+        GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
+        GLX_CONTEXT_MINOR_VERSION_ARB, 3,
+        // GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+        GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+        None,
+    };
+
+    GLXContext gl_context = glXCreateContextAttribsARB(display, 
+                                                       best_config,
+                                                       null,
+                                                       True,
+                                                       context_attributes);
     if (!gl_context) {
-        write_string("Failed to glXCreateContext.\n", true);
+        write_string("Failed to glXCreateContextAttribsARB.\n", true);
         return 0;
     }
 
@@ -830,7 +966,6 @@ int main(void) {
 
     glXDestroyContext(display, gl_context);
 
-    XFree(visual_info);
     XFreeColormap(display, colormap);
     XDestroyWindow(display, window);
     XCloseDisplay(display);
