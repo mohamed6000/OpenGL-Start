@@ -3,6 +3,9 @@
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <dlfcn.h>
+#include <time.h>
+
+#include <math.h>
 
 #include "stb_image.h"
 
@@ -11,6 +14,13 @@
 
 #ifndef APIENTRY
 #define APIENTRY
+#endif
+
+#ifdef GL_USE_LEGACY_PROCS
+#undef GL_USE_LEGACY_PROCS
+#define GL_USE_LEGACY_PROCS 1
+#else
+#define GL_USE_LEGACY_PROCS 0
 #endif
 
 
@@ -25,6 +35,8 @@ typedef float         GLfloat;
 typedef float         GLclampf;
 typedef double        GLclampd;
 typedef void          GLvoid;
+typedef smm           GLsizeiptr;
+typedef char          GLchar;
 
 
 #define GL_BLEND                   0x0BE2
@@ -101,6 +113,10 @@ typedef void          GLvoid;
 #define GL_DST_COLOR           0x0306
 #define GL_ONE_MINUS_DST_COLOR 0x0307
 #define GL_SRC_ALPHA_SATURATE  0x0308
+
+/* Boolean */
+#define GL_TRUE  1
+#define GL_FALSE 0
 
 /* DataType */
 #define GL_BYTE           0x1400
@@ -224,6 +240,67 @@ typedef void          GLvoid;
 #define GL_DEPTH_BUFFER_BIT 0x00000100
 #define GL_COLOR_BUFFER_BIT 0x00004000
 
+// GLCOREARB.
+#define GL_SHADING_LANGUAGE_VERSION 0x8B8C
+#define GL_ARRAY_BUFFER 0x8892
+#define GL_STREAM_DRAW  0x88E0
+#define GL_STATIC_DRAW  0x88E4
+#define GL_FRAGMENT_SHADER 0x8B30
+#define GL_VERTEX_SHADER   0x8B31
+#define GL_COMPILE_STATUS  0x8B81
+#define GL_LINK_STATUS     0x8B82
+#define GL_TEXTURE0 0x84C0
+
+typedef void APIENTRY GL_PROC(glGenVertexArrays) (GLsizei n, GLuint *arrays);
+typedef void APIENTRY GL_PROC(glBindVertexArray) (GLuint array);
+typedef void APIENTRY GL_PROC(glGenBuffers) (GLsizei n, GLuint *buffers);
+typedef void APIENTRY GL_PROC(glBindBuffer) (GLenum target, GLuint buffer);
+typedef void APIENTRY GL_PROC(glBufferData) (GLenum target, GLsizeiptr size, const void *data, GLenum usage);
+typedef void APIENTRY GL_PROC(glCompileShader) (GLuint shader);
+typedef GLuint APIENTRY GL_PROC(glCreateProgram) (void);
+typedef GLuint APIENTRY GL_PROC(glCreateShader) (GLenum type);
+typedef void APIENTRY GL_PROC(glDeleteProgram) (GLuint program);
+typedef void APIENTRY GL_PROC(glDeleteShader) (GLuint shader);
+typedef void APIENTRY GL_PROC(glDetachShader) (GLuint program, GLuint shader);
+typedef void APIENTRY GL_PROC(glDisableVertexAttribArray) (GLuint index);
+typedef void APIENTRY GL_PROC(glEnableVertexAttribArray) (GLuint index);
+typedef void APIENTRY GL_PROC(glLinkProgram) (GLuint program);
+typedef void APIENTRY GL_PROC(glShaderSource) (GLuint shader, GLsizei count, const GLchar *const*string, const GLint *length);
+typedef void APIENTRY GL_PROC(glUseProgram) (GLuint program);
+typedef void APIENTRY GL_PROC(glAttachShader) (GLuint program, GLuint shader);
+typedef void APIENTRY GL_PROC(glVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+typedef void APIENTRY GL_PROC(glGetShaderiv) (GLuint shader, GLenum pname, GLint *params);
+typedef void APIENTRY GL_PROC(glGetShaderInfoLog) (GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+typedef void APIENTRY GL_PROC(glUniformMatrix4fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
+typedef GLint APIENTRY GL_PROC(glGetUniformLocation) (GLuint program, const GLchar *name);
+typedef void APIENTRY GL_PROC(glActiveTexture) (GLenum texture);
+typedef void APIENTRY GL_PROC(glUniform1i) (GLint location, GLint v0);
+
+GL_PROC(glGenVertexArrays) *glGenVertexArrays;
+GL_PROC(glBindVertexArray) *glBindVertexArray;
+GL_PROC(glGenBuffers)      *glGenBuffers;
+GL_PROC(glBindBuffer)      *glBindBuffer;
+GL_PROC(glBufferData)      *glBufferData;
+GL_PROC(glCompileShader)   *glCompileShader;
+GL_PROC(glCreateProgram)   *glCreateProgram;
+GL_PROC(glCreateShader)    *glCreateShader;
+GL_PROC(glDeleteProgram)   *glDeleteProgram;
+GL_PROC(glDeleteShader)    *glDeleteShader;
+GL_PROC(glDetachShader)    *glDetachShader;
+GL_PROC(glDisableVertexAttribArray) *glDisableVertexAttribArray;
+GL_PROC(glEnableVertexAttribArray)  *glEnableVertexAttribArray;
+GL_PROC(glLinkProgram)         *glLinkProgram;
+GL_PROC(glShaderSource)        *glShaderSource;
+GL_PROC(glUseProgram)          *glUseProgram;
+GL_PROC(glAttachShader)        *glAttachShader;
+GL_PROC(glVertexAttribPointer) *glVertexAttribPointer;
+GL_PROC(glGetShaderiv)         *glGetShaderiv;
+GL_PROC(glGetShaderInfoLog)    *glGetShaderInfoLog;
+GL_PROC(glUniformMatrix4fv)    *glUniformMatrix4fv;
+GL_PROC(glGetUniformLocation)  *glGetUniformLocation;
+GL_PROC(glActiveTexture)       *glActiveTexture;
+GL_PROC(glUniform1i)           *glUniform1i;
+
 
 typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
 typedef void APIENTRY GL_PROC(glClear) (GLbitfield mask);
@@ -295,6 +372,7 @@ GL_PROC(glPixelStoref)   *glPixelStoref;
 GL_PROC(glPixelStorei)   *glPixelStorei;
 GL_PROC(glReadBuffer)    *glReadBuffer;
 
+#if GL_USE_LEGACY_PROCS
 /***************** Legacy functions *********************/
 typedef void APIENTRY GL_PROC(glBegin) (GLenum mode);
 typedef void APIENTRY GL_PROC(glEnd) (void);
@@ -318,6 +396,7 @@ GL_PROC(glTexEnvf)     *glTexEnvf;
 GL_PROC(glTexCoord2f)  *glTexCoord2f;
 GL_PROC(glLoadIdentity)*glLoadIdentity;
 /***************** Legacy functions *********************/
+#endif
 
 
 // GLX.
@@ -406,6 +485,7 @@ static GL_PROC(glXQueryExtensionsString) *glXQueryExtensionsString;
 
 #define GLX_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(glx_module, #ident)
 #define GL1_LOAD_PROC(ident) ident = (GL_PROC(ident) *)glXGetProcAddress((const GLubyte *)#ident)
+#define GL_LOAD_PROC(ident) ident = (GL_PROC(ident) *)glXGetProcAddress((const GLubyte *)#ident)
 
 bool glx_load(void) {
     void *glx_module = dlopen("libGLX.so.0", RTLD_LAZY);
@@ -469,8 +549,10 @@ bool gl_load(void) {
     GL1_LOAD_PROC(glPixelStoref);
     GL1_LOAD_PROC(glPixelStorei);
     GL1_LOAD_PROC(glReadBuffer);
+    GL1_LOAD_PROC(glDrawArrays);
 
 
+#if GL_USE_LEGACY_PROCS
     GL1_LOAD_PROC(glBegin);
     GL1_LOAD_PROC(glEnd);
     GL1_LOAD_PROC(glVertex3f);
@@ -481,6 +563,36 @@ bool gl_load(void) {
     GL1_LOAD_PROC(glTexEnvf);
     GL1_LOAD_PROC(glTexCoord2f);
     GL1_LOAD_PROC(glLoadIdentity);
+#endif
+
+    return true;
+}
+
+bool gl_load_extensions(void) {
+    GL_LOAD_PROC(glGenVertexArrays);
+    GL_LOAD_PROC(glBindVertexArray);
+    GL_LOAD_PROC(glGenBuffers);
+    GL_LOAD_PROC(glBindBuffer);
+    GL_LOAD_PROC(glBufferData);
+    GL_LOAD_PROC(glCompileShader);
+    GL_LOAD_PROC(glCreateProgram);
+    GL_LOAD_PROC(glCreateShader);
+    GL_LOAD_PROC(glDeleteProgram);
+    GL_LOAD_PROC(glDeleteShader);
+    GL_LOAD_PROC(glDetachShader);
+    GL_LOAD_PROC(glDisableVertexAttribArray);
+    GL_LOAD_PROC(glEnableVertexAttribArray);
+    GL_LOAD_PROC(glLinkProgram);
+    GL_LOAD_PROC(glShaderSource);
+    GL_LOAD_PROC(glUseProgram);
+    GL_LOAD_PROC(glAttachShader);
+    GL_LOAD_PROC(glVertexAttribPointer);
+    GL_LOAD_PROC(glGetShaderiv);
+    GL_LOAD_PROC(glGetShaderInfoLog);
+    GL_LOAD_PROC(glUniformMatrix4fv);
+    GL_LOAD_PROC(glGetUniformLocation);
+    GL_LOAD_PROC(glActiveTexture);
+    GL_LOAD_PROC(glUniform1i);
 
     return true;
 }
@@ -517,6 +629,15 @@ static bool isExtensionSupported(const char *extList, const char *extension) {
     return false;
 }
 
+GLuint vbo;
+GLuint last_bound_texture_id;
+GLuint shader_program;
+GLuint projection_loc;
+
+struct Vector2 {
+    float x, y;
+};
+
 struct Vector3 {
     float x, y, z;
 };
@@ -532,7 +653,58 @@ struct Texture {
     int channels;
 };
 
-GLuint last_bound_texture_id;
+struct Vertex {
+    Vector3 position;
+    Vector4 color;
+    Vector2 uv;
+};
+
+const int MAX_VERTICES = 1024;
+static Vertex vertices[MAX_VERTICES];
+int vertex_count = 0;
+
+const char *vertex_shader_source = R"(
+#version 330 core
+layout (location = 0) in vec3 in_position;
+layout (location = 1) in vec4 in_color;
+layout (location = 2) in vec2 in_uv;
+
+out vec4 color;
+out vec2 uv;
+
+uniform mat4 projection;
+
+void main() {
+    gl_Position = projection * vec4(in_position.x, in_position.y, in_position.z, 1.0f);
+    color       = in_color;
+    uv          = in_uv;
+}
+)";
+
+const char *fragment_shader_source = R"(
+#version 330 core
+out vec4 final_color;
+
+in vec4 color;
+in vec2 uv;
+
+uniform sampler2D texture_map;
+
+void main() {
+    final_color = texture(texture_map, uv) * color;
+}
+)";
+
+void frame_flush(void) {
+    if (!vertex_count) return;
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, size_of(vertices[0]) * vertex_count, vertices, GL_STREAM_DRAW);
+
+    glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+
+    vertex_count = 0;
+}
 
 void render_update_texture(Texture *texture, unsigned char *data) {
     if (!texture->id) {
@@ -553,7 +725,6 @@ void render_update_texture(Texture *texture, unsigned char *data) {
     // @Todo: Add more formats.
 
     glBindTexture(GL_TEXTURE_2D, texture->id);
-    glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
     
     glTexImage2D(GL_TEXTURE_2D, 0, gl_source_format, 
                  texture->width, texture->height, 
@@ -579,6 +750,11 @@ Texture texture_load_from_file(const char *file_path) {
 
 void set_texture(Texture *texture) {
     if (last_bound_texture_id != texture->id) {
+        frame_flush();
+        GLint texture_handle = glGetUniformLocation(shader_program, "texture_map");
+        glUniform1i(texture_handle, 0);
+        
+        glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture->id);
     }
 
@@ -586,114 +762,277 @@ void set_texture(Texture *texture) {
 }
 
 void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
-    glBegin(GL_TRIANGLES);
+    assert(vertex_count <= (MAX_VERTICES - 6));
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(0, 1);
-    glVertex3f(x0, y0, 0);
+    Vertex *v = vertices + vertex_count;
+    v->position.x = x0;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = 0;
+    v->uv.y       = 1;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(1, 1);
-    glVertex3f(x1, y0, 0);
-    
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(1, 0);
-    glVertex3f(x1, y1,  0);
+    v->position.x = x1;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = 1;
+    v->uv.y       = 1;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(0, 1);
-    glVertex3f(x0, y0, 0);
-    
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(1, 0);
-    glVertex3f(x1, y1,  0);
+    v->position.x = x1;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = 1;
+    v->uv.y       = 0;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(0, 0);
-    glVertex3f(x0, y1,  0);
+    v->position.x = x0;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = 0;
+    v->uv.y       = 1;
+    v += 1;
 
-    glEnd();
+    v->position.x = x1;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = 1;
+    v->uv.y       = 0;
+    v += 1;
+
+    v->position.x = x0;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = 0;
+    v->uv.y       = 0;
+    v += 1;
+
+    vertex_count += 6;
 }
 
 void draw_quad(float x0, float y0, float x1, float y1, 
                float u0, float v0, float u1, float v1,
                Vector4 c) {
-    glBegin(GL_TRIANGLES);
+    assert(vertex_count <= (MAX_VERTICES - 6));
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u0, v1);
-    glVertex3f(x0, y0, 0);
+    Vertex *v = vertices + vertex_count;
+    v->position.x = x0;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = u0;
+    v->uv.y       = v1;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u1, v1);
-    glVertex3f(x1, y0, 0);
-    
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u1, v0);
-    glVertex3f(x1, y1,  0);
+    v->position.x = x1;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = u1;
+    v->uv.y       = v1;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u0, v1);
-    glVertex3f(x0, y0, 0);
-    
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u1, v0);
-    glVertex3f(x1, y1,  0);
+    v->position.x = x1;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = u1;
+    v->uv.y       = v0;
+    v += 1;
 
-    glColor4f(c.x, c.y, c.z, c.w);
-    glTexCoord2f(u0, v0);
-    glVertex3f(x0, y1,  0);
+    v->position.x = x0;
+    v->position.y = y0;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = u0;
+    v->uv.y       = v1;
+    v += 1;
 
-    glEnd();
+    v->position.x = x1;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = u1;
+    v->uv.y       = v0;
+    v += 1;
+
+    v->position.x = x0;
+    v->position.y = y1;
+    v->position.z = 0;
+    v->color      = c;
+    v->uv.x       = u0;
+    v->uv.y       = v0;
+    v += 1;
+
+    vertex_count += 6;
 }
 
 void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
                Vector4 c0, Vector4 c1, Vector4 c2, Vector4 c3) {
-    glBegin(GL_TRIANGLES);
+    assert(vertex_count <= (MAX_VERTICES - 6));
 
-    glColor4f(c0.x, c0.y, c0.z, c0.w);
-    glTexCoord2f(0, 1);
-    glVertex3f(p0.x, p0.y, p0.z);
+    Vertex *v = vertices + vertex_count;
+    v->position = p0;
+    v->color    = c0;
+    v->uv.x     = 0;
+    v->uv.y     = 1;
+    v += 1;
 
-    glColor4f(c1.x, c1.y, c1.z, c1.w);
-    glTexCoord2f(1, 1);
-    glVertex3f(p1.x, p1.y, p1.z);
-    
-    glColor4f(c2.x, c2.y, c2.z, c2.w);
-    glTexCoord2f(1, 0);
-    glVertex3f(p2.x, p2.y, p2.z);
+    v->position = p1;
+    v->color    = c1;
+    v->uv.x     = 1;
+    v->uv.y     = 1;
+    v += 1;
 
-    glColor4f(c0.x, c0.y, c0.z, c0.w);
-    glTexCoord2f(0, 1);
-    glVertex3f(p0.x, p0.y, p0.z);
+    v->position = p2;
+    v->color    = c2;
+    v->uv.x     = 1;
+    v->uv.y     = 0;
+    v += 1;
 
-    glColor4f(c2.x, c2.y, c2.z, c2.w);
-    glTexCoord2f(1, 0);
-    glVertex3f(p2.x, p2.y, p2.z);
+    v->position = p0;
+    v->color    = c0;
+    v->uv.x     = 0;
+    v->uv.y     = 1;
+    v += 1;
 
-    glColor4f(c3.x, c3.y, c3.z, c3.w);
-    glTexCoord2f(0, 0);
-    glVertex3f(p3.x, p3.y, p3.z);
+    v->position = p2;
+    v->color    = c2;
+    v->uv.x     = 1;
+    v->uv.y     = 0;
+    v += 1;
 
-    glEnd();
+    v->position = p3;
+    v->color    = c3;
+    v->uv.x     = 0;
+    v->uv.y     = 0;
+    v += 1;
+
+    vertex_count += 6;
+}
+
+void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
+               Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
+               Vector4 color) {
+    assert(vertex_count <= (MAX_VERTICES - 6));
+
+    Vertex *v = vertices + vertex_count;
+    v->position = p0;
+    v->color    = color;
+    v->uv.x     = uv0.x;
+    v->uv.y     = uv3.y;
+    v += 1;
+
+    v->position = p1;
+    v->color    = color;
+    v->uv.x     = uv1.x;
+    v->uv.y     = uv2.y;
+    v += 1;
+
+    v->position = p2;
+    v->color    = color;
+    v->uv.x     = uv2.x;
+    v->uv.y     = uv1.y;
+    v += 1;
+
+    v->position = p0;
+    v->color    = color;
+    v->uv.x     = uv0.x;
+    v->uv.y     = uv3.y;
+    v += 1;
+
+    v->position = p2;
+    v->color    = color;
+    v->uv.x     = uv2.x;
+    v->uv.y     = uv1.y;
+    v += 1;
+
+    v->position = p3;
+    v->color    = color;
+    v->uv.x     = uv3.x;
+    v->uv.y     = uv0.y;
+    v += 1;
+
+    vertex_count += 6;
+}
+
+inline Vector2 rotate_z(Vector2 v, Vector2 c, float theta) {
+    Vector2 result;
+
+    float ct = cosf(theta);
+    float st = sinf(theta);
+
+    v.x -= c.x;
+    v.y -= c.y;
+
+    result.x = v.x*ct - v.y*st;
+    result.y = v.x*st + v.y*ct;
+
+    result.x += c.x;
+    result.y += c.y;
+
+    return result;
 }
 
 void rendering_2d(int w, int h) {
-    glMatrixMode(GL_PROJECTION);
-
     float proj[16] = {
         2.0f/w,  0,       0,   0,
         0,       2.0f/h,  0,   0,
         0,       0,       1,   0,
        -1,      -1,       0,   1
     };
-    glLoadMatrixf(proj);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
+    glUniformMatrix4fv(projection_loc, 1, GL_FALSE, proj);
 }
 
 bool should_quit = false;
+
+GLXFBConfig glx_choose_best_fb_config(Display *display, int screen_id, int *visual_attributes) {
+    // Getting matching framebuffer configs.
+    int fb_count;
+    GLXFBConfig *fb_configs = glXChooseFBConfig(display, screen_id, visual_attributes, &fb_count);
+    if (!fb_configs) {
+        write_string("Failed to glXChooseFBConfig.\n", true);
+        return 0;
+    }
+
+    print("Found %d matching FB configs.\n", fb_count);
+
+    int best_fbc_index  = -1;
+    int worst_fbc_index = -1;
+    int best_sample_count  = -1;
+    int worst_sample_count = 999;
+
+    for (int index = 0; index < fb_count; index++) {
+        XVisualInfo *vi = glXGetVisualFromFBConfig(display, fb_configs[index]);
+        if (vi) {
+            int sample_buffer, sample_count;
+            glXGetFBConfigAttrib(display, fb_configs[index], GLX_SAMPLE_BUFFERS, &sample_buffer);
+            glXGetFBConfigAttrib(display, fb_configs[index], GLX_SAMPLES,        &sample_count);
+
+            if ((best_fbc_index < 0) || sample_buffer && (sample_count > best_sample_count)) {
+                best_fbc_index = index;
+                best_sample_count = sample_count;
+            }
+
+            if ((worst_fbc_index < 0) || !sample_buffer && (sample_count < worst_sample_count)) {
+                worst_fbc_index = index;
+                worst_sample_count = sample_count;
+            }
+            XFree(vi);
+        }
+    }
+
+    GLXFBConfig best_config = fb_configs[best_fbc_index];
+    XFree(fb_configs);
+
+    return best_config;
+}
 
 int main(void) {
     Display *display = XOpenDisplay(null);
@@ -742,43 +1081,7 @@ int main(void) {
     u64 black_color = BlackPixel(display, screen_id);
     u64 white_color = WhitePixel(display, screen_id);
 
-    // Getting matching framebuffer configs.
-    int fb_count;
-    GLXFBConfig *fb_configs = glXChooseFBConfig(display, screen_id, visual_attributes, &fb_count);
-    if (!fb_configs) {
-        write_string("Failed to glXChooseFBConfig.\n", true);
-        return 0;
-    }
-
-    print("Found %d matching FB configs.\n", fb_count);
-
-    int best_fbc_index  = -1;
-    int worst_fbc_index = -1;
-    int best_sample_count  = -1;
-    int worst_sample_count = 999;
-
-    for (int index = 0; index < fb_count; index++) {
-        XVisualInfo *vi = glXGetVisualFromFBConfig(display, fb_configs[index]);
-        if (vi) {
-            int sample_buffer, sample_count;
-            glXGetFBConfigAttrib(display, fb_configs[index], GLX_SAMPLE_BUFFERS, &sample_buffer);
-            glXGetFBConfigAttrib(display, fb_configs[index], GLX_SAMPLES, &sample_count);
-
-            if ((best_fbc_index < 0) || sample_buffer && (sample_count > best_sample_count)) {
-                best_fbc_index = index;
-                best_sample_count = sample_count;
-            }
-
-            if ((worst_fbc_index < 0) || !sample_buffer && (sample_count < worst_sample_count)) {
-                worst_fbc_index = index;
-                worst_sample_count = sample_count;
-            }
-            XFree(vi);
-        }
-    }
-
-    GLXFBConfig best_config = fb_configs[best_fbc_index];
-    XFree(fb_configs);
+    GLXFBConfig best_config = glx_choose_best_fb_config(display, screen_id, visual_attributes);
 
     // Get visual.
     XVisualInfo *visual_info = glXGetVisualFromFBConfig(display, best_config);
@@ -838,7 +1141,11 @@ int main(void) {
         GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
         GLX_CONTEXT_MINOR_VERSION_ARB, 3,
         // GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+#if GL_USE_LEGACY_PROCS
         GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+#else
+        GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+#endif
         None,
     };
 
@@ -859,13 +1166,18 @@ int main(void) {
 
     if (!gl_load()) return 0;
 
+    // Load modern GL functions...
+    gl_load_extensions();
+
     const GLubyte *gl_version  = glGetString(GL_VERSION);
     const GLubyte *gl_vendor   = glGetString(GL_VENDOR);
     const GLubyte *gl_renderer = glGetString(GL_RENDERER);
-
+    const GLubyte *gl_shader_version = glGetString(GL_SHADING_LANGUAGE_VERSION);
+    
     print("OpenGL Version:  %s\n", gl_version);
     print("OpenGL Vendor:   %s\n", gl_vendor);
     print("OpenGL Renderer: %s\n", gl_renderer);
+    print("OpenGL Shading Language Version: %s\n", gl_shader_version);
 
     Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
     Texture cat  = texture_load_from_file("data/textures/cat.png");
@@ -879,6 +1191,58 @@ int main(void) {
     int back_buffer_width  = size_attributes.width;
     int back_buffer_height = size_attributes.height;
 
+
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex_shader, 1, &vertex_shader_source, null);
+    glCompileShader(vertex_shader);
+
+    int  success;
+    char infoLog[512];
+    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
+    if(!success) {
+        glGetShaderInfoLog(vertex_shader, size_of(infoLog), NULL, infoLog);
+        print("Failed to compile vertex shader:\n%s\n", infoLog);
+    }
+
+    GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment_shader, 1, &fragment_shader_source, null);
+    glCompileShader(fragment_shader);
+
+    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
+    if(!success) {
+        glGetShaderInfoLog(fragment_shader, size_of(infoLog), NULL, infoLog);
+        print("Failed to compile fragment shader:\n%s\n", infoLog);
+    }
+
+    shader_program = glCreateProgram();
+    glAttachShader(shader_program, vertex_shader);
+    glAttachShader(shader_program, fragment_shader);
+    glLinkProgram(shader_program);
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)0);
+    glEnableVertexAttribArray(0);
+    
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)12);
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)28);
+    glEnableVertexAttribArray(2);
+
+    glUseProgram(shader_program);
+
+    projection_loc = glGetUniformLocation(shader_program, "projection");
+
+
     // glDisable(GL_DEPTH_TEST);
     // Depth is mapped as near=-1 and far 1.
     glEnable(GL_DEPTH_TEST);
@@ -887,7 +1251,28 @@ int main(void) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    Vector2 cat_pos0 = {400, 300};
+    Vector2 cat_pos1 = {500, 400};
+    float cat_rot_angle = 0;
+
+    Vector3 red_cat_p0 = {500, 300, 0};
+    Vector3 red_cat_p1 = {650, 300, 0};
+    Vector3 red_cat_p2 = {650, 400, 0};
+    Vector3 red_cat_p3 = {500, 400, 0};
+
+    float64 ONE_OVER_NANO_SECOND = 0.000000001;
+    timespec tspec;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &tspec);
+    float64 last_counter = 0;
+
     while (!should_quit) {
+        int clock_result = clock_gettime(CLOCK_MONOTONIC_RAW, &tspec);
+        float64 current_counter = (float64)tspec.tv_sec + tspec.tv_nsec * ONE_OVER_NANO_SECOND;
+        float current_dt = current_counter - last_counter;
+        last_counter = current_counter;
+
+        print("current_dt = %f, frames = %d\n", current_dt, (s32)(1.0f/current_dt));
+
         // Non-blocking event loop.
         while (XPending(display) > 0) {
             XEvent event;
@@ -937,8 +1322,20 @@ int main(void) {
 
         set_texture(&cat);
 
-        draw_quad(500, 300, 650, 400, 
-                  0, 0, 1, 0.5f,
+        Vector3 center = {
+            (red_cat_p0.x+red_cat_p1.x)/2,
+            0,
+            (red_cat_p0.z+red_cat_p3.z)/2,
+        };
+
+        draw_quad(red_cat_p0, 
+                  red_cat_p1, 
+                  red_cat_p2, 
+                  red_cat_p3,
+                  Vector2{0,0}, 
+                  Vector2{1,0},
+                  Vector2{1,0.5f},
+                  Vector2{0,0.5f},
                   Vector4{1,0,0,1});
 
         float depth,x0,y0,x1,y1;
@@ -954,12 +1351,31 @@ int main(void) {
 
         set_texture(&cat);
         depth = -0.2f;
-        x0 = 400;
-        y0 = 300;
-        x1 = 500;
-        y1 = 400;
-        draw_quad(Vector3{x0,y0,depth}, Vector3{x1,y0,depth}, Vector3{x1,y1,depth}, Vector3{x0,y1,depth},
-                  Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1},   Vector4{1,1,1,1});
+
+        Vector2 center_2d = {
+            (cat_pos0.x+cat_pos1.x)/2,
+            (cat_pos0.y+cat_pos1.y)/2,
+        };
+
+        cat_rot_angle += current_dt * (float)TAU;
+        if (cat_rot_angle >= 360.0f) cat_rot_angle = 0;
+
+        Vector2 p0 = rotate_z(Vector2{cat_pos0.x,cat_pos0.y}, center_2d, cat_rot_angle);
+        Vector2 p1 = rotate_z(Vector2{cat_pos1.x,cat_pos0.y}, center_2d, cat_rot_angle);
+        Vector2 p2 = rotate_z(Vector2{cat_pos1.x,cat_pos1.y}, center_2d, cat_rot_angle);
+        Vector2 p3 = rotate_z(Vector2{cat_pos0.x,cat_pos1.y}, center_2d, cat_rot_angle);
+
+        draw_quad(Vector3{p0.x, p0.y ,depth},
+                  Vector3{p1.x, p1.y ,depth}, 
+                  Vector3{p2.x, p2.y ,depth}, 
+                  Vector3{p3.x, p3.y ,depth}, 
+                  Vector4{1,1,1,1},
+                  Vector4{1,1,1,1},
+                  Vector4{1,1,1,1},
+                  Vector4{1,1,1,1});
+
+
+        frame_flush();
 
         glXSwapBuffers(display, window);
     }
