@@ -484,13 +484,13 @@ static GL_PROC(glXGetVisualFromFBConfig) *glXGetVisualFromFBConfig;
 static GL_PROC(glXQueryExtensionsString) *glXQueryExtensionsString;
 
 #define GLX_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(glx_module, #ident)
-#define GL1_LOAD_PROC(ident) ident = (GL_PROC(ident) *)glXGetProcAddress((const GLubyte *)#ident)
+#define GL1_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(gl_module, #ident)
 #define GL_LOAD_PROC(ident) ident = (GL_PROC(ident) *)glXGetProcAddress((const GLubyte *)#ident)
 
 bool glx_load(void) {
-    void *glx_module = dlopen("libGLX.so.0", RTLD_LAZY);
+    void *glx_module = dlopen("libGLX.so.0", RTLD_NOW | RTLD_GLOBAL);
     if (!glx_module) {
-        glx_module = dlopen("libGLX.so", RTLD_LAZY);
+        glx_module = dlopen("libGLX.so", RTLD_NOW | RTLD_GLOBAL);
     }
 
     if (!glx_module) {
@@ -514,6 +514,16 @@ bool glx_load(void) {
 }
 
 bool gl_load(void) {
+    void *gl_module = dlopen("libGL.so.1", RTLD_NOW | RTLD_GLOBAL);
+    if (!gl_module) {
+        gl_module = dlopen("libGL.so", RTLD_NOW | RTLD_GLOBAL);
+    }
+
+    if (!gl_module) {
+        write_string("Failed to load GL module.\n", true);
+        return false;
+    }
+
     // @Todo: Fallback to dlsym when glXGetProcAddress Fails?
 
     GL1_LOAD_PROC(glGetString);
@@ -1071,11 +1081,11 @@ int main(void) {
 
     print("GLX Version: %d.%d\n", glx_major, glx_minor);
 
-    GL1_LOAD_PROC(glXCreateContextAttribsARB);
-    GL1_LOAD_PROC(glXChooseFBConfig);
-    GL1_LOAD_PROC(glXGetFBConfigAttrib);
-    GL1_LOAD_PROC(glXGetVisualFromFBConfig);
-    GL1_LOAD_PROC(glXQueryExtensionsString);
+    GL_LOAD_PROC(glXCreateContextAttribsARB);
+    GL_LOAD_PROC(glXChooseFBConfig);
+    GL_LOAD_PROC(glXGetFBConfigAttrib);
+    GL_LOAD_PROC(glXGetVisualFromFBConfig);
+    GL_LOAD_PROC(glXQueryExtensionsString);
 
     int screen_id   = XDefaultScreen(display);
     u64 black_color = BlackPixel(display, screen_id);
@@ -1270,8 +1280,6 @@ int main(void) {
         float64 current_counter = (float64)tspec.tv_sec + tspec.tv_nsec * ONE_OVER_NANO_SECOND;
         float current_dt = current_counter - last_counter;
         last_counter = current_counter;
-
-        print("current_dt = %f, frames = %d\n", current_dt, (s32)(1.0f/current_dt));
 
         // Non-blocking event loop.
         while (XPending(display) > 0) {
