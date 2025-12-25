@@ -13,6 +13,7 @@
 #define GL_IMPLEMENTATION
 #include "GL.h"
 
+
 extern "C" {
     // https://docs.nvidia.com/gameworks/content/technologies/desktop/optimus.htm
     // SHARED_EXPORT DWORD NvOptimusEnablement = 0x00000001;

@@ -24,6 +24,8 @@
 
 #if OS_WINDOWS
 #define GL_LOAD_PROC(ident) ident = (GL_PROC(ident) *)W32_wglGetProcAddress(#ident)
+#elif OS_LINUX
+#define GL_LOAD_PROC(ident) ident = (GL_PROC(ident) *)glXGetProcAddress((const GLubyte *)#ident)
 #else
 #error Undefined GL_LOAD_PROC
 #endif
@@ -415,11 +417,45 @@ bool gl_load_extensions(void);
 
 void gl_unload(void);
 
+bool gl_is_extension_supported(const char *extList, const char *extension);
+
 #endif  // GL_INCLUDE_H
 
 
 
 #ifdef GL_IMPLEMENTATION
+
+// Helper to check for extension string presence.  Adapted from:
+//   http://www.opengl.org/resources/features/OGLextensions/
+bool gl_is_extension_supported(const char *extList, const char *extension) {
+    const char *start;
+    const char *where, *terminator;
+
+    /* Extension names should not have spaces. */
+    where = strchr(extension, ' ');
+    if (where || *extension == '\0')
+    return false;
+
+    /* It takes a bit of care to be fool-proof about parsing the
+     OpenGL extensions string. Don't be fooled by sub-strings,
+     etc. */
+    for (start=extList;;) {
+        where = strstr(start, extension);
+
+        if (!where)
+            break;
+
+        terminator = where + strlen(extension);
+
+        if ( where == start || *(where - 1) == ' ' )
+            if ( *terminator == ' ' || *terminator == '\0' )
+                return true;
+
+        start = terminator;
+    }
+
+    return false;
+}
 
 #if OS_WINDOWS
 
@@ -583,5 +619,229 @@ void gl_unload(void) {
 }
 
 #endif  // OS_WINDOWS
+
+
+
+#if OS_LINUX
+
+// GLX.
+typedef struct __GLXcontextRec *GLXContext;
+typedef struct __GLXFBConfigRec *GLXFBConfig;
+typedef XID GLXDrawable;
+
+
+#define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
+#define GLX_CONTEXT_MINOR_VERSION_ARB 0x2092
+#define GLX_CONTEXT_FLAGS_ARB         0x2094
+#define GLX_CONTEXT_PROFILE_MASK_ARB  0x9126
+
+#define GLX_CONTEXT_DEBUG_BIT_ARB              0x0001
+#define GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB 0x0002
+
+#define GLX_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
+#define GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
+
+/*
+ * Tokens for glXChooseVisual and glXGetConfig:
+ */
+#define GLX_USE_GL           1
+#define GLX_BUFFER_SIZE      2
+#define GLX_LEVEL            3
+#define GLX_RGBA             4
+#define GLX_DOUBLEBUFFER     5
+#define GLX_STEREO           6
+#define GLX_AUX_BUFFERS      7
+#define GLX_RED_SIZE         8
+#define GLX_GREEN_SIZE       9
+#define GLX_BLUE_SIZE        10
+#define GLX_ALPHA_SIZE       11
+#define GLX_DEPTH_SIZE       12
+#define GLX_STENCIL_SIZE     13
+#define GLX_ACCUM_RED_SIZE   14
+#define GLX_ACCUM_GREEN_SIZE 15
+#define GLX_ACCUM_BLUE_SIZE  16
+#define GLX_ACCUM_ALPHA_SIZE 17
+
+#define GLX_X_VISUAL_TYPE 0x22
+#define GLX_WINDOW_BIT    0x00000001
+#define GLX_RGBA_BIT      0x00000001
+#define GLX_TRUE_COLOR    0x8002
+#define GLX_DRAWABLE_TYPE 0x8010
+#define GLX_RENDER_TYPE   0x8011
+#define GLX_X_RENDERABLE  0x8012
+#define GLX_RGBA_TYPE     0x8014
+
+/*
+ * GLX 1.4 and later:
+ */
+#define GLX_SAMPLE_BUFFERS 0x186a0 /*100000*/
+#define GLX_SAMPLES        0x186a1 /*100001*/
+
+
+typedef Bool GL_PROC(glXQueryVersion)( Display *dpy, int *maj, int *min );
+typedef XVisualInfo* GL_PROC(glXChooseVisual)( Display *dpy, int screen, int *attribList );
+typedef GLXContext GL_PROC(glXCreateContext)( Display *dpy, XVisualInfo *vis, GLXContext shareList, Bool direct );
+typedef void GL_PROC(glXDestroyContext)( Display *dpy, GLXContext ctx );
+typedef Bool GL_PROC(glXMakeCurrent)( Display *dpy, GLXDrawable drawable, GLXContext ctx);
+typedef void GL_PROC(glXSwapBuffers)( Display *dpy, GLXDrawable drawable );
+
+typedef void (*__GLXextFuncPtr)(void);
+typedef __GLXextFuncPtr GL_PROC(glXGetProcAddress) (const GLubyte *);
+
+typedef GLXContext GL_PROC(glXCreateContextAttribsARB)(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int *attrib_list);
+typedef GLXFBConfig *GL_PROC(glXChooseFBConfig)(Display *dpy, int screen, const int *attribList, int *nitems);
+typedef int GL_PROC(glXGetFBConfigAttrib)(Display *dpy, GLXFBConfig config, int attribute, int *value);
+typedef XVisualInfo *GL_PROC(glXGetVisualFromFBConfig)(Display *dpy, GLXFBConfig config);
+typedef const char *GL_PROC(glXQueryExtensionsString)(Display *dpy, int screen);
+
+static GL_PROC(glXQueryVersion)            *glXQueryVersion;
+static GL_PROC(glXChooseVisual)            *glXChooseVisual;
+static GL_PROC(glXCreateContext)           *glXCreateContext;
+static GL_PROC(glXDestroyContext)          *glXDestroyContext;
+static GL_PROC(glXMakeCurrent)             *glXMakeCurrent;
+static GL_PROC(glXSwapBuffers)             *glXSwapBuffers;
+static GL_PROC(glXGetProcAddress)          *glXGetProcAddress;
+static GL_PROC(glXCreateContextAttribsARB) *glXCreateContextAttribsARB;
+static GL_PROC(glXChooseFBConfig)          *glXChooseFBConfig;
+static GL_PROC(glXGetFBConfigAttrib)       *glXGetFBConfigAttrib;
+static GL_PROC(glXGetVisualFromFBConfig)   *glXGetVisualFromFBConfig;
+static GL_PROC(glXQueryExtensionsString)   *glXQueryExtensionsString;
+
+#define GLX_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(glx_module, #ident)
+
+static bool glx_load(void) {
+    void *glx_module = dlopen("libGLX.so.0", RTLD_NOW | RTLD_GLOBAL);
+    if (!glx_module) {
+        glx_module = dlopen("libGLX.so", RTLD_NOW | RTLD_GLOBAL);
+    }
+
+    if (!glx_module) {
+        write_string("Failed to load GLX.\n", true);
+        return false;
+    }
+
+    GLX_LOAD_PROC(glXQueryVersion);
+    GLX_LOAD_PROC(glXChooseVisual);
+    GLX_LOAD_PROC(glXCreateContext);
+    GLX_LOAD_PROC(glXDestroyContext);
+    GLX_LOAD_PROC(glXMakeCurrent);
+    GLX_LOAD_PROC(glXSwapBuffers);
+
+    glXGetProcAddress = (glXGetProcAddressPROC *)dlsym(glx_module, "glXGetProcAddressARB");
+    if (!glXGetProcAddress) {
+        GLX_LOAD_PROC(glXGetProcAddress);
+    }
+
+    return true;
+}
+
+
+#define GL1_LOAD_PROC(ident) ident = (GL_PROC(ident) *)dlsym(gl_module, #ident)
+
+static void *gl_module;
+
+bool gl_load(void) {
+    gl_module = dlopen("libGL.so.1", RTLD_NOW | RTLD_GLOBAL);
+    if (!gl_module) {
+        gl_module = dlopen("libGL.so", RTLD_NOW | RTLD_GLOBAL);
+    }
+
+    if (!gl_module) {
+        write_string("Failed to load GL module.\n", true);
+        return false;
+    }
+
+    // @Todo: Fallback to dlsym when glXGetProcAddress Fails?
+
+    GL1_LOAD_PROC(glGetString);
+    GL1_LOAD_PROC(glClear);
+    GL1_LOAD_PROC(glClearColor);
+    GL1_LOAD_PROC(glBlendFunc);
+    GL1_LOAD_PROC(glDisable);
+    GL1_LOAD_PROC(glEnable);
+    GL1_LOAD_PROC(glViewport);
+    GL1_LOAD_PROC(glGenTextures);
+    GL1_LOAD_PROC(glBindTexture);
+    GL1_LOAD_PROC(glTexImage2D);
+    GL1_LOAD_PROC(glTexParameteri);
+    GL1_LOAD_PROC(glDepthFunc);
+    GL1_LOAD_PROC(glClearDepth);
+    GL1_LOAD_PROC(glPolygonMode);
+    GL1_LOAD_PROC(glPolygonOffset);
+    GL1_LOAD_PROC(glDepthMask);
+    GL1_LOAD_PROC(glDepthRange);
+    GL1_LOAD_PROC(glCullFace);
+    GL1_LOAD_PROC(glLineWidth);
+    GL1_LOAD_PROC(glFrontFace);
+    GL1_LOAD_PROC(glScissor);
+    GL1_LOAD_PROC(glStencilFunc);
+    GL1_LOAD_PROC(glStencilMask);
+    GL1_LOAD_PROC(glStencilOp);
+    GL1_LOAD_PROC(glDrawBuffer);
+    GL1_LOAD_PROC(glColorMask);
+    GL1_LOAD_PROC(glDrawElements);
+    GL1_LOAD_PROC(glDeleteTextures);
+    GL1_LOAD_PROC(glClearStencil);
+    GL1_LOAD_PROC(glReadPixels);
+    GL1_LOAD_PROC(glPixelStoref);
+    GL1_LOAD_PROC(glPixelStorei);
+    GL1_LOAD_PROC(glReadBuffer);
+    GL1_LOAD_PROC(glDrawArrays);
+
+
+#if GL_USE_LEGACY_PROCS
+    GL1_LOAD_PROC(glBegin);
+    GL1_LOAD_PROC(glEnd);
+    GL1_LOAD_PROC(glVertex3f);
+    GL1_LOAD_PROC(glColor3f);
+    GL1_LOAD_PROC(glColor4f);
+    GL1_LOAD_PROC(glMatrixMode);
+    GL1_LOAD_PROC(glLoadMatrixf);
+    GL1_LOAD_PROC(glTexEnvf);
+    GL1_LOAD_PROC(glTexCoord2f);
+    GL1_LOAD_PROC(glLoadIdentity);
+#endif
+
+    return true;
+}
+
+bool gl_load_extensions(void) {
+    GL_LOAD_PROC(glGenVertexArrays);
+    GL_LOAD_PROC(glBindVertexArray);
+    GL_LOAD_PROC(glGenBuffers);
+    GL_LOAD_PROC(glBindBuffer);
+    GL_LOAD_PROC(glBufferData);
+    GL_LOAD_PROC(glCompileShader);
+    GL_LOAD_PROC(glCreateProgram);
+    GL_LOAD_PROC(glCreateShader);
+    GL_LOAD_PROC(glDeleteProgram);
+    GL_LOAD_PROC(glDeleteShader);
+    GL_LOAD_PROC(glDetachShader);
+    GL_LOAD_PROC(glDisableVertexAttribArray);
+    GL_LOAD_PROC(glEnableVertexAttribArray);
+    GL_LOAD_PROC(glLinkProgram);
+    GL_LOAD_PROC(glShaderSource);
+    GL_LOAD_PROC(glUseProgram);
+    GL_LOAD_PROC(glAttachShader);
+    GL_LOAD_PROC(glVertexAttribPointer);
+    GL_LOAD_PROC(glGetShaderiv);
+    GL_LOAD_PROC(glGetShaderInfoLog);
+    GL_LOAD_PROC(glUniformMatrix4fv);
+    GL_LOAD_PROC(glGetUniformLocation);
+    GL_LOAD_PROC(glActiveTexture);
+    GL_LOAD_PROC(glUniform1i);
+
+    return true;
+}
+
+void gl_unload(void) {
+    if (gl_module) {
+        dlclose(gl_module);
+        gl_module = null;
+    }
+}
+
+#endif  // OS_LINUX
 
 #endif  // GL_IMPLEMENTATION
