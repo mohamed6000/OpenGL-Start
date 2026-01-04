@@ -39,12 +39,12 @@ GLXFBConfig glx_choose_best_fb_config(Display *display, int screen_id, int *visu
             glXGetFBConfigAttrib(display, fb_configs[index], GLX_SAMPLE_BUFFERS, &sample_buffer);
             glXGetFBConfigAttrib(display, fb_configs[index], GLX_SAMPLES,        &sample_count);
 
-            if ((best_fbc_index < 0) || sample_buffer && (sample_count > best_sample_count)) {
+            if ((best_fbc_index < 0) || (sample_buffer && (sample_count > best_sample_count))) {
                 best_fbc_index = index;
                 best_sample_count = sample_count;
             }
 
-            if ((worst_fbc_index < 0) || !sample_buffer && (sample_count < worst_sample_count)) {
+            if ((worst_fbc_index < 0) || (!sample_buffer && (sample_count < worst_sample_count))) {
                 worst_fbc_index = index;
                 worst_sample_count = sample_count;
             }
@@ -290,7 +290,7 @@ int main(void) {
     float64 last_counter = 0;
 
     while (!should_quit) {
-        int clock_result = clock_gettime(CLOCK_MONOTONIC_RAW, &tspec);
+        clock_gettime(CLOCK_MONOTONIC_RAW, &tspec);
         float64 current_counter = (float64)tspec.tv_sec + tspec.tv_nsec * ONE_OVER_NANO_SECOND;
         float current_dt = current_counter - last_counter;
         last_counter = current_counter;
@@ -344,11 +344,13 @@ int main(void) {
 
         set_texture(&cat);
 
+/*
         Vector3 center = {
             (red_cat_p0.x+red_cat_p1.x)/2,
             0,
             (red_cat_p0.z+red_cat_p3.z)/2,
         };
+*/
 
         draw_quad(red_cat_p0, 
                   red_cat_p1, 
