@@ -32,7 +32,7 @@ struct Key_State {
 
 extern Key_State key_left;
 extern Key_State key_right;
-extern Key_State key_fire;
+extern Key_State key_space;
 extern Key_State key_esc;
 
 extern bool should_quit;

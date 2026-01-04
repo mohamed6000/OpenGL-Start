@@ -34,7 +34,7 @@ int back_buffer_height;
 
 Key_State key_left;
 Key_State key_right;
-Key_State key_fire;
+Key_State key_space;
 Key_State key_esc;
 
 // Internal.
@@ -86,6 +86,16 @@ void main() {
 )";
 
 void init_framework(void) {
+    const GLubyte *gl_version  = glGetString(GL_VERSION);
+    const GLubyte *gl_vendor   = glGetString(GL_VENDOR);
+    const GLubyte *gl_renderer = glGetString(GL_RENDERER);
+    const GLubyte *gl_shader_version = glGetString(GL_SHADING_LANGUAGE_VERSION);
+    
+    print("OpenGL Version:  %s\n", gl_version);
+    print("OpenGL Vendor:   %s\n", gl_vendor);
+    print("OpenGL Renderer: %s\n", gl_renderer);
+    print("OpenGL Shading Language Version: %s\n", gl_shader_version);
+
     GLuint vao;
     glGenVertexArrays(1, &vao);
     glBindVertexArray(vao);
@@ -135,6 +145,14 @@ void init_framework(void) {
     glUseProgram(shader_program);
 
     projection_loc = glGetUniformLocation(shader_program, "projection");
+
+
+    // Depth is mapped as near=-1 and far 1.
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 void frame_flush(void) {
@@ -619,7 +637,7 @@ static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM w
             } else if (wparam == VK_RIGHT) {
                 key_right.is_down  = is_down;
             } else if (wparam == VK_SPACE) {
-                key_fire.is_down  = is_down;
+                key_space.is_down  = is_down;
             } else if (wparam == VK_ESCAPE) {
                 key_esc.is_down  = is_down;
             }
@@ -635,7 +653,7 @@ static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM w
             } else if (wparam == VK_RIGHT) {
                 key_right.is_down = is_down;
             } else if (wparam == VK_SPACE) {
-                key_fire.is_down = is_down;
+                key_space.is_down = is_down;
             } else if (wparam == VK_ESCAPE) {
                 key_esc.is_down = is_down;
             }
@@ -805,6 +823,11 @@ static Colormap colormap;
 static Atom wm_delete_window;
 static GLXContext gl_context;
 
+static KeyCode xkey_left;
+static KeyCode xkey_right;
+static KeyCode xkey_space;
+static KeyCode xkey_escape;
+
 OS_Window *init_window(const char *title, int w, int h) {
     display = XOpenDisplay(null);
     if (!display) {
@@ -868,7 +891,7 @@ OS_Window *init_window(const char *title, int w, int h) {
     window_attributes.background_pixel  = white_color;
     window_attributes.override_redirect = True;
     window_attributes.colormap   = colormap;
-    window_attributes.event_mask = ExposureMask|KeyPressMask|StructureNotifyMask;
+    window_attributes.event_mask = ExposureMask|KeyPressMask|KeyReleaseMask|StructureNotifyMask;
 
     Window window = XCreateWindow(display, parent_window, 
                                   10, 10,
@@ -950,6 +973,13 @@ OS_Window *init_window(const char *title, int w, int h) {
     back_buffer_width = w;
     back_buffer_height = h;
 
+
+    xkey_left   = XKeysymToKeycode(display, XK_Left);
+    xkey_right  = XKeysymToKeycode(display, XK_Right);
+    xkey_space  = XKeysymToKeycode(display, XK_space);
+    xkey_escape = XKeysymToKeycode(display, XK_Escape);
+
+
     OS_Window *result = New(OS_Window);
     result->window = window;
 
@@ -1002,8 +1032,36 @@ void update_window_events(void) {
                 break;
 
             case KeyPress:
-                write_string("Key press event.\n");
-                break;
+            {
+                bool is_down = true;
+                KeyCode key_code = event.xkey.keycode;
+
+                if (key_code == xkey_left) {
+                    key_left.is_down = is_down;
+                } else if (key_code == xkey_right) {
+                    key_right.is_down = is_down;
+                } else if (key_code == xkey_space) {
+                    key_space.is_down = is_down;
+                } else if (key_code == xkey_escape) {
+                    key_esc.is_down = is_down;
+                }
+            } break;
+
+            case KeyRelease:
+            {
+                bool is_down = false;
+                KeyCode key_code = event.xkey.keycode;
+
+                if (key_code == xkey_left) {
+                    key_left.is_down = is_down;
+                } else if (key_code == xkey_right) {
+                    key_right.is_down = is_down;
+                } else if (key_code == xkey_space) {
+                    key_space.is_down = is_down;
+                } else if (key_code == xkey_escape) {
+                    key_esc.is_down = is_down;
+                }
+            } break;
         }
     }
 }

@@ -20,27 +20,8 @@ extern "C" {
 int main(void) {
     OS_Window *window = init_window("OpenGL", 800, 600);
 
-    const GLubyte *gl_version  = glGetString(GL_VERSION);
-    const GLubyte *gl_vendor   = glGetString(GL_VENDOR);
-    const GLubyte *gl_renderer = glGetString(GL_RENDERER);
-    const GLubyte *gl_shader_version = glGetString(GL_SHADING_LANGUAGE_VERSION);
-    
-    print("OpenGL Version:  %s\n", gl_version);
-    print("OpenGL Vendor:   %s\n", gl_vendor);
-    print("OpenGL Renderer: %s\n", gl_renderer);
-    print("OpenGL Shading Language Version: %s\n", gl_shader_version);
-
     Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
     Texture cat  = texture_load_from_file("data/textures/cat.png");
-
-
-    // glDisable(GL_DEPTH_TEST);
-    // Depth is mapped as near=-1 and far 1.
-    glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LEQUAL);
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     Vector2 cat_pos0 = {400, 300};
     Vector2 cat_pos1 = {500, 400};
@@ -56,9 +37,14 @@ int main(void) {
     while (!should_quit) {
         float64 wall_counter = get_current_time();
         float current_dt = (float)(wall_counter - last_counter);
+        if (current_dt > 0.16f) current_dt = 0.16f;
         last_counter = wall_counter;
 
         update_window_events();
+
+        if (key_esc.is_down) {
+            should_quit = true;
+        }
 
         glViewport(0, 0, back_buffer_width, back_buffer_height);
         
