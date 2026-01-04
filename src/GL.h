@@ -1,11 +1,11 @@
 #ifndef GL_INCLUDE_H
 #define GL_INCLUDE_H
 
-#ifndef APIENTRY
+#ifndef GL_APIENTRY
 #   if OS_WINDOWS
-#       define APIENTRY __stdcall
+#       define GL_APIENTRY __stdcall
 #   else
-#       define APIENTRY
+#       define GL_APIENTRY
 #   endif
 #endif
 
@@ -262,30 +262,30 @@ typedef char          GLchar;
 #define GL_TEXTURE0        0x84C0
 
 // GL Core ARB Procs.
-typedef void APIENTRY GL_PROC(glGenVertexArrays) (GLsizei n, GLuint *arrays);
-typedef void APIENTRY GL_PROC(glBindVertexArray) (GLuint array);
-typedef void APIENTRY GL_PROC(glGenBuffers) (GLsizei n, GLuint *buffers);
-typedef void APIENTRY GL_PROC(glBindBuffer) (GLenum target, GLuint buffer);
-typedef void APIENTRY GL_PROC(glBufferData) (GLenum target, GLsizeiptr size, const void *data, GLenum usage);
-typedef void APIENTRY GL_PROC(glCompileShader) (GLuint shader);
-typedef GLuint APIENTRY GL_PROC(glCreateProgram) (void);
-typedef GLuint APIENTRY GL_PROC(glCreateShader) (GLenum type);
-typedef void APIENTRY GL_PROC(glDeleteProgram) (GLuint program);
-typedef void APIENTRY GL_PROC(glDeleteShader) (GLuint shader);
-typedef void APIENTRY GL_PROC(glDetachShader) (GLuint program, GLuint shader);
-typedef void APIENTRY GL_PROC(glDisableVertexAttribArray) (GLuint index);
-typedef void APIENTRY GL_PROC(glEnableVertexAttribArray) (GLuint index);
-typedef void APIENTRY GL_PROC(glLinkProgram) (GLuint program);
-typedef void APIENTRY GL_PROC(glShaderSource) (GLuint shader, GLsizei count, const GLchar *const*string, const GLint *length);
-typedef void APIENTRY GL_PROC(glUseProgram) (GLuint program);
-typedef void APIENTRY GL_PROC(glAttachShader) (GLuint program, GLuint shader);
-typedef void APIENTRY GL_PROC(glVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
-typedef void APIENTRY GL_PROC(glGetShaderiv) (GLuint shader, GLenum pname, GLint *params);
-typedef void APIENTRY GL_PROC(glGetShaderInfoLog) (GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
-typedef void APIENTRY GL_PROC(glUniformMatrix4fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
-typedef GLint APIENTRY GL_PROC(glGetUniformLocation) (GLuint program, const GLchar *name);
-typedef void APIENTRY GL_PROC(glActiveTexture) (GLenum texture);
-typedef void APIENTRY GL_PROC(glUniform1i) (GLint location, GLint v0);
+typedef void GL_APIENTRY GL_PROC(glGenVertexArrays) (GLsizei n, GLuint *arrays);
+typedef void GL_APIENTRY GL_PROC(glBindVertexArray) (GLuint array);
+typedef void GL_APIENTRY GL_PROC(glGenBuffers) (GLsizei n, GLuint *buffers);
+typedef void GL_APIENTRY GL_PROC(glBindBuffer) (GLenum target, GLuint buffer);
+typedef void GL_APIENTRY GL_PROC(glBufferData) (GLenum target, GLsizeiptr size, const void *data, GLenum usage);
+typedef void GL_APIENTRY GL_PROC(glCompileShader) (GLuint shader);
+typedef GLuint GL_APIENTRY GL_PROC(glCreateProgram) (void);
+typedef GLuint GL_APIENTRY GL_PROC(glCreateShader) (GLenum type);
+typedef void GL_APIENTRY GL_PROC(glDeleteProgram) (GLuint program);
+typedef void GL_APIENTRY GL_PROC(glDeleteShader) (GLuint shader);
+typedef void GL_APIENTRY GL_PROC(glDetachShader) (GLuint program, GLuint shader);
+typedef void GL_APIENTRY GL_PROC(glDisableVertexAttribArray) (GLuint index);
+typedef void GL_APIENTRY GL_PROC(glEnableVertexAttribArray) (GLuint index);
+typedef void GL_APIENTRY GL_PROC(glLinkProgram) (GLuint program);
+typedef void GL_APIENTRY GL_PROC(glShaderSource) (GLuint shader, GLsizei count, const GLchar *const*string, const GLint *length);
+typedef void GL_APIENTRY GL_PROC(glUseProgram) (GLuint program);
+typedef void GL_APIENTRY GL_PROC(glAttachShader) (GLuint program, GLuint shader);
+typedef void GL_APIENTRY GL_PROC(glVertexAttribPointer) (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer);
+typedef void GL_APIENTRY GL_PROC(glGetShaderiv) (GLuint shader, GLenum pname, GLint *params);
+typedef void GL_APIENTRY GL_PROC(glGetShaderInfoLog) (GLuint shader, GLsizei bufSize, GLsizei *length, GLchar *infoLog);
+typedef void GL_APIENTRY GL_PROC(glUniformMatrix4fv) (GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
+typedef GLint GL_APIENTRY GL_PROC(glGetUniformLocation) (GLuint program, const GLchar *name);
+typedef void GL_APIENTRY GL_PROC(glActiveTexture) (GLenum texture);
+typedef void GL_APIENTRY GL_PROC(glUniform1i) (GLint location, GLint v0);
 
 extern GL_PROC(glGenVertexArrays)          *glGenVertexArrays;
 extern GL_PROC(glBindVertexArray)          *glBindVertexArray;
@@ -314,40 +314,40 @@ extern GL_PROC(glUniform1i)                *glUniform1i;
 
 
 // GL 1 procs.
-typedef const GLubyte * APIENTRY GL_PROC(glGetString) (GLenum name);
-typedef void APIENTRY GL_PROC(glClear) (GLbitfield mask);
-typedef void APIENTRY GL_PROC(glClearColor) (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
-typedef void APIENTRY GL_PROC(glBlendFunc) (GLenum sfactor, GLenum dfactor);
-typedef void APIENTRY GL_PROC(glDisable) (GLenum cap);
-typedef void APIENTRY GL_PROC(glEnable) (GLenum cap);
-typedef void APIENTRY GL_PROC(glViewport) (GLint x, GLint y, GLsizei width, GLsizei height);
-typedef void APIENTRY GL_PROC(glGenTextures) (GLsizei n, GLuint *textures);
-typedef void APIENTRY GL_PROC(glBindTexture) (GLenum target, GLuint texture);
-typedef void APIENTRY GL_PROC(glTexImage2D) (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
-typedef void APIENTRY GL_PROC(glTexParameteri) (GLenum target, GLenum pname, GLint param);
-typedef void APIENTRY GL_PROC(glDepthFunc) (GLenum func);
-typedef void APIENTRY GL_PROC(glClearDepth) (GLclampd depth);
-typedef void APIENTRY GL_PROC(glPolygonMode) (GLenum face, GLenum mode);
-typedef void APIENTRY GL_PROC(glPolygonOffset) (GLfloat factor, GLfloat units);
-typedef void APIENTRY GL_PROC(glDepthMask) (GLboolean flag);
-typedef void APIENTRY GL_PROC(glDepthRange) (GLclampd zNear, GLclampd zFar);
-typedef void APIENTRY GL_PROC(glCullFace) (GLenum mode);
-typedef void APIENTRY GL_PROC(glLineWidth) (GLfloat width);
-typedef void APIENTRY GL_PROC(glFrontFace) (GLenum mode);
-typedef void APIENTRY GL_PROC(glScissor) (GLint x, GLint y, GLsizei width, GLsizei height);
-typedef void APIENTRY GL_PROC(glStencilFunc) (GLenum func, GLint ref, GLuint mask);
-typedef void APIENTRY GL_PROC(glStencilMask) (GLuint mask);
-typedef void APIENTRY GL_PROC(glStencilOp) (GLenum fail, GLenum zfail, GLenum zpass);
-typedef void APIENTRY GL_PROC(glDrawBuffer) (GLenum mode);
-typedef void APIENTRY GL_PROC(glColorMask) (GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
-typedef void APIENTRY GL_PROC(glDrawArrays) (GLenum mode, GLint first, GLsizei count);
-typedef void APIENTRY GL_PROC(glDrawElements) (GLenum mode, GLsizei count, GLenum type, const GLvoid *indices);
-typedef void APIENTRY GL_PROC(glDeleteTextures) (GLsizei n, const GLuint *textures);
-typedef void APIENTRY GL_PROC(glClearStencil) (GLint s);
-typedef void APIENTRY GL_PROC(glReadPixels) (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid *pixels);
-typedef void APIENTRY GL_PROC(glPixelStoref) (GLenum pname, GLfloat param);
-typedef void APIENTRY GL_PROC(glPixelStorei) (GLenum pname, GLint param);
-typedef void APIENTRY GL_PROC(glReadBuffer) (GLenum mode);
+typedef const GLubyte * GL_APIENTRY GL_PROC(glGetString) (GLenum name);
+typedef void GL_APIENTRY GL_PROC(glClear) (GLbitfield mask);
+typedef void GL_APIENTRY GL_PROC(glClearColor) (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
+typedef void GL_APIENTRY GL_PROC(glBlendFunc) (GLenum sfactor, GLenum dfactor);
+typedef void GL_APIENTRY GL_PROC(glDisable) (GLenum cap);
+typedef void GL_APIENTRY GL_PROC(glEnable) (GLenum cap);
+typedef void GL_APIENTRY GL_PROC(glViewport) (GLint x, GLint y, GLsizei width, GLsizei height);
+typedef void GL_APIENTRY GL_PROC(glGenTextures) (GLsizei n, GLuint *textures);
+typedef void GL_APIENTRY GL_PROC(glBindTexture) (GLenum target, GLuint texture);
+typedef void GL_APIENTRY GL_PROC(glTexImage2D) (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const GLvoid *pixels);
+typedef void GL_APIENTRY GL_PROC(glTexParameteri) (GLenum target, GLenum pname, GLint param);
+typedef void GL_APIENTRY GL_PROC(glDepthFunc) (GLenum func);
+typedef void GL_APIENTRY GL_PROC(glClearDepth) (GLclampd depth);
+typedef void GL_APIENTRY GL_PROC(glPolygonMode) (GLenum face, GLenum mode);
+typedef void GL_APIENTRY GL_PROC(glPolygonOffset) (GLfloat factor, GLfloat units);
+typedef void GL_APIENTRY GL_PROC(glDepthMask) (GLboolean flag);
+typedef void GL_APIENTRY GL_PROC(glDepthRange) (GLclampd zNear, GLclampd zFar);
+typedef void GL_APIENTRY GL_PROC(glCullFace) (GLenum mode);
+typedef void GL_APIENTRY GL_PROC(glLineWidth) (GLfloat width);
+typedef void GL_APIENTRY GL_PROC(glFrontFace) (GLenum mode);
+typedef void GL_APIENTRY GL_PROC(glScissor) (GLint x, GLint y, GLsizei width, GLsizei height);
+typedef void GL_APIENTRY GL_PROC(glStencilFunc) (GLenum func, GLint ref, GLuint mask);
+typedef void GL_APIENTRY GL_PROC(glStencilMask) (GLuint mask);
+typedef void GL_APIENTRY GL_PROC(glStencilOp) (GLenum fail, GLenum zfail, GLenum zpass);
+typedef void GL_APIENTRY GL_PROC(glDrawBuffer) (GLenum mode);
+typedef void GL_APIENTRY GL_PROC(glColorMask) (GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
+typedef void GL_APIENTRY GL_PROC(glDrawArrays) (GLenum mode, GLint first, GLsizei count);
+typedef void GL_APIENTRY GL_PROC(glDrawElements) (GLenum mode, GLsizei count, GLenum type, const GLvoid *indices);
+typedef void GL_APIENTRY GL_PROC(glDeleteTextures) (GLsizei n, const GLuint *textures);
+typedef void GL_APIENTRY GL_PROC(glClearStencil) (GLint s);
+typedef void GL_APIENTRY GL_PROC(glReadPixels) (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid *pixels);
+typedef void GL_APIENTRY GL_PROC(glPixelStoref) (GLenum pname, GLfloat param);
+typedef void GL_APIENTRY GL_PROC(glPixelStorei) (GLenum pname, GLint param);
+typedef void GL_APIENTRY GL_PROC(glReadBuffer) (GLenum mode);
 
 extern GL_PROC(glGetString)     *glGetString;
 extern GL_PROC(glClear)         *glClear;
@@ -387,16 +387,16 @@ extern GL_PROC(glReadBuffer)    *glReadBuffer;
 
 #if GL_USE_LEGACY_PROCS
 /***************** Legacy functions *********************/
-typedef void APIENTRY GL_PROC(glBegin) (GLenum mode);
-typedef void APIENTRY GL_PROC(glEnd) (void);
-typedef void APIENTRY GL_PROC(glVertex3f) (GLfloat x, GLfloat y, GLfloat z);
-typedef void APIENTRY GL_PROC(glColor3f) (GLfloat red, GLfloat green, GLfloat blue);
-typedef void APIENTRY GL_PROC(glColor4f) (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
-typedef void APIENTRY GL_PROC(glMatrixMode) (GLenum mode);
-typedef void APIENTRY GL_PROC(glLoadMatrixf) (const GLfloat *m);
-typedef void APIENTRY GL_PROC(glTexEnvf) (GLenum target, GLenum pname, GLfloat param);
-typedef void APIENTRY GL_PROC(glTexCoord2f) (GLfloat s, GLfloat t);
-typedef void APIENTRY GL_PROC(glLoadIdentity) (void);
+typedef void GL_APIENTRY GL_PROC(glBegin) (GLenum mode);
+typedef void GL_APIENTRY GL_PROC(glEnd) (void);
+typedef void GL_APIENTRY GL_PROC(glVertex3f) (GLfloat x, GLfloat y, GLfloat z);
+typedef void GL_APIENTRY GL_PROC(glColor3f) (GLfloat red, GLfloat green, GLfloat blue);
+typedef void GL_APIENTRY GL_PROC(glColor4f) (GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha);
+typedef void GL_APIENTRY GL_PROC(glMatrixMode) (GLenum mode);
+typedef void GL_APIENTRY GL_PROC(glLoadMatrixf) (const GLfloat *m);
+typedef void GL_APIENTRY GL_PROC(glTexEnvf) (GLenum target, GLenum pname, GLfloat param);
+typedef void GL_APIENTRY GL_PROC(glTexCoord2f) (GLfloat s, GLfloat t);
+typedef void GL_APIENTRY GL_PROC(glLoadIdentity) (void);
 
 extern GL_PROC(glBegin)       *glBegin;
 extern GL_PROC(glEnd)         *glEnd;

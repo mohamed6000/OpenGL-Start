@@ -1,20 +1,9 @@
 #include "general.h"
-
-#define UNICODE
-#define _UNICODE
-
-#define WIN32_LEAN_AND_MEAN
-#define VC_EXTRALEAN
-#include <windows.h>
-#include <math.h>
+#include "framework.h"
 
 #include "stb_image.h"
 
-#define GL_IMPLEMENTATION
-#include "GL.h"
-
-
-#include "framework.h"
+#include <math.h>
 
 
 extern "C" {
@@ -89,12 +78,6 @@ int main(void) {
 
         set_texture(&cat);
 
-        Vector3 center = {
-            (red_cat_p0.x+red_cat_p1.x)/2,
-            0,
-            (red_cat_p0.z+red_cat_p3.z)/2,
-        };
-
         draw_quad(red_cat_p0, 
                   red_cat_p1, 
                   red_cat_p2, 
@@ -145,26 +128,13 @@ int main(void) {
         frame_flush();
 
         swap_buffers(window);
+        os_sleep(1);
     }
 
     free_window_and_opengl(window);
 
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

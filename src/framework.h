@@ -1,6 +1,9 @@
 #ifndef FRAMEWORK_INCLUDE_H
 #define FRAMEWORK_INCLUDE_H
 
+#include "general.h"
+#include "GL.h"
+
 struct OS_Window;
 
 struct Vector2 {
@@ -41,6 +44,7 @@ float64 get_current_time(void);
 void free_window_and_opengl(OS_Window *w);
 void update_window_events(void);
 void swap_buffers(OS_Window *w);
+void os_sleep(u32 ms);
 
 void init_framework(void);
 void frame_flush(void);
