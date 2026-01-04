@@ -53,6 +53,8 @@ const int MAX_VERTICES = 1024;
 static Vertex vertices[MAX_VERTICES];
 int vertex_count = 0;
 
+int current_vertex_per_primitive = 3;
+
 const char *vertex_shader_source = R"(
 #version 330 core
 layout (location = 0) in vec3 in_position;
@@ -155,13 +157,25 @@ void init_framework(void) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
+void frame_begin(int vertex_per_primitive) {
+    if (vertex_per_primitive != current_vertex_per_primitive) {
+        frame_flush();
+    }
+
+    current_vertex_per_primitive = vertex_per_primitive;
+}
+
 void frame_flush(void) {
     if (!vertex_count) return;
 
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, size_of(vertices[0]) * vertex_count, vertices, GL_STREAM_DRAW);
 
-    glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+    if (current_vertex_per_primitive == 3) {
+        glDrawArrays(GL_TRIANGLES, 0, vertex_count);
+    } else {
+        glDrawArrays(GL_LINES, 0, vertex_count);
+    }
 
     vertex_count = 0;
 }
@@ -204,13 +218,15 @@ Texture texture_load_from_file(const char *file_path) {
         render_update_texture(&result, data);
 
         stbi_image_free(data);
+    } else {
+        print("Failed to load: %s\n", file_path);
     }
 
     return result;
 }
 
 void set_texture(Texture *texture) {
-    if (last_bound_texture_id != texture->id) {
+if (last_bound_texture_id != texture->id) {
         frame_flush();
         GLint texture_handle = glGetUniformLocation(shader_program, "texture_map");
         glUniform1i(texture_handle, 0);
@@ -222,18 +238,32 @@ void set_texture(Texture *texture) {
     last_bound_texture_id = texture->id;
 }
 
-void rendering_2d(int w, int h) {
+void rendering_2d(int w, int h, float x, float y) {
     float proj[16] = {
         2.0f/w,  0,       0,   0,
         0,       2.0f/h,  0,   0,
         0,       0,       1,   0,
-       -1,      -1,       0,   1
+        x-1,       y-1,       0,   1
     };
     glUniformMatrix4fv(projection_loc, 1, GL_FALSE, proj);
 }
 
+void draw_vertex(Vector2 p, Vector4 c) {
+    if (vertex_count > (MAX_VERTICES-1)) frame_flush();
+
+    Vertex *v = vertices + vertex_count;
+    v->position.x = p.x;
+    v->position.y = p.y;
+    v->position.z = 0;
+    v->uv.x       = 0;
+    v->uv.y       = 0;
+    v->color      = c;
+
+    vertex_count += 1;
+}
+
 void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
-    assert(vertex_count <= (MAX_VERTICES - 6));
+    if (vertex_count > (MAX_VERTICES - 6)) frame_flush();
 
     Vertex *v = vertices + vertex_count;
     v->position.x = x0;
@@ -290,7 +320,7 @@ void draw_quad(float x0, float y0, float x1, float y1, Vector4 c) {
 void draw_quad(float x0, float y0, float x1, float y1, 
                float u0, float v0, float u1, float v1,
                Vector4 c) {
-    assert(vertex_count <= (MAX_VERTICES - 6));
+    if (vertex_count > (MAX_VERTICES - 6)) frame_flush();
 
     Vertex *v = vertices + vertex_count;
     v->position.x = x0;
@@ -346,7 +376,7 @@ void draw_quad(float x0, float y0, float x1, float y1,
 
 void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
                Vector4 c0, Vector4 c1, Vector4 c2, Vector4 c3) {
-    assert(vertex_count <= (MAX_VERTICES - 6));
+    if (vertex_count > (MAX_VERTICES - 6)) frame_flush();
 
     Vertex *v = vertices + vertex_count;
     v->position = p0;
@@ -391,7 +421,7 @@ void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
 void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
                Vector2 uv0, Vector2 uv1, Vector2 uv2, Vector2 uv3,
                Vector4 color) {
-    assert(vertex_count <= (MAX_VERTICES - 6));
+    if (vertex_count > (MAX_VERTICES - 6)) frame_flush();
 
     Vertex *v = vertices + vertex_count;
     v->position = p0;
