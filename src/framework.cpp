@@ -1,30 +1,15 @@
+#include "framework.h"
+
+// Globals.
 bool should_quit = false;
 int back_buffer_width;
 int back_buffer_height;
 
-GLuint vbo;
-GLuint last_bound_texture_id;
-GLuint shader_program;
-GLuint projection_loc;
-
-struct Vector2 {
-    float x, y;
-};
-
-struct Vector3 {
-    float x, y, z;
-};
-
-struct Vector4 {
-    float x, y, z, w;
-};
-
-struct Texture {
-    GLuint id;
-    int width;
-    int height;
-    int channels;
-};
+// Internal.
+static GLuint vbo;
+static GLuint last_bound_texture_id;
+static GLuint shader_program;
+static GLuint projection_loc;
 
 struct Vertex {
     Vector3 position;
@@ -67,6 +52,58 @@ void main() {
     final_color = texture(texture_map, uv) * color;
 }
 )";
+
+void init_framework(void) {
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    glGenBuffers(1, &vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+    GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertex_shader, 1, &vertex_shader_source, null);
+    glCompileShader(vertex_shader);
+
+    int  success;
+    char infoLog[512];
+    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
+    if(!success) {
+        glGetShaderInfoLog(vertex_shader, size_of(infoLog), NULL, infoLog);
+        print("Failed to compile vertex shader:\n%s\n", infoLog);
+    }
+
+    GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragment_shader, 1, &fragment_shader_source, null);
+    glCompileShader(fragment_shader);
+
+    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
+    if(!success) {
+        glGetShaderInfoLog(fragment_shader, size_of(infoLog), NULL, infoLog);
+        print("Failed to compile fragment shader:\n%s\n", infoLog);
+    }
+
+    shader_program = glCreateProgram();
+    glAttachShader(shader_program, vertex_shader);
+    glAttachShader(shader_program, fragment_shader);
+    glLinkProgram(shader_program);
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)0);
+    glEnableVertexAttribArray(0);
+    
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)12);
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)28);
+    glEnableVertexAttribArray(2);
+
+    glUseProgram(shader_program);
+
+    projection_loc = glGetUniformLocation(shader_program, "projection");
+}
 
 void frame_flush(void) {
     if (!vertex_count) return;
@@ -346,7 +383,7 @@ void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
     vertex_count += 6;
 }
 
-inline Vector2 rotate_z(Vector2 v, Vector2 c, float theta) {
+Vector2 rotate_z(Vector2 v, Vector2 c, float theta) {
     Vector2 result;
 
     float ct = cosf(theta);

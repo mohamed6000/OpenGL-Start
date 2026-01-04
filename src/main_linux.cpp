@@ -13,7 +13,7 @@
 #include "GL.h"
 
 
-#include "framework.cpp"
+#include "framework.h"
 
 
 GLXFBConfig glx_choose_best_fb_config(Display *display, int screen_id, int *visual_attributes) {
@@ -215,57 +215,7 @@ int main(void) {
     int back_buffer_width  = size_attributes.width;
     int back_buffer_height = size_attributes.height;
 
-
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-    GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertex_shader, 1, &vertex_shader_source, null);
-    glCompileShader(vertex_shader);
-
-    int  success;
-    char infoLog[512];
-    glGetShaderiv(vertex_shader, GL_COMPILE_STATUS, &success);
-    if(!success) {
-        glGetShaderInfoLog(vertex_shader, size_of(infoLog), NULL, infoLog);
-        print("Failed to compile vertex shader:\n%s\n", infoLog);
-    }
-
-    GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragment_shader, 1, &fragment_shader_source, null);
-    glCompileShader(fragment_shader);
-
-    glGetShaderiv(fragment_shader, GL_COMPILE_STATUS, &success);
-    if(!success) {
-        glGetShaderInfoLog(fragment_shader, size_of(infoLog), NULL, infoLog);
-        print("Failed to compile fragment shader:\n%s\n", infoLog);
-    }
-
-    shader_program = glCreateProgram();
-    glAttachShader(shader_program, vertex_shader);
-    glAttachShader(shader_program, fragment_shader);
-    glLinkProgram(shader_program);
-
-    glDeleteShader(vertex_shader);
-    glDeleteShader(fragment_shader);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)0);
-    glEnableVertexAttribArray(0);
-    
-    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)12);
-    glEnableVertexAttribArray(1);
-
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 9 * size_of(float), (void *)28);
-    glEnableVertexAttribArray(2);
-
-    glUseProgram(shader_program);
-
-    projection_loc = glGetUniformLocation(shader_program, "projection");
-
+    init_framework();
 
     // glDisable(GL_DEPTH_TEST);
     // Depth is mapped as near=-1 and far 1.
@@ -421,3 +371,5 @@ int main(void) {
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+
+#include "framework.cpp"
