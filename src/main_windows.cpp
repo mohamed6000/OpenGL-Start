@@ -28,223 +28,8 @@ extern "C" {
     // SHARED_EXPORT int AmdPowerXpressRequestHighPerformance = 1;
 }
 
-#if COMPILER_CL
-#pragma comment(lib, "Gdi32.lib")
-#endif
-
-
-HGLRC gl_context;
-
-bool opengl_init(HWND window) {
-    // Create dummy window.
-    HINSTANCE hInstance = GetModuleHandleW(null);
-
-    WNDCLASSEXW wcex = {};
-    wcex.cbSize = size_of(WNDCLASSEXW);
-    wcex.hInstance     = hInstance;
-    wcex.lpszClassName = L"Dummy Window";
-    wcex.lpfnWndProc   = DefWindowProcW;
-
-    // Register the window class.
-    if (RegisterClassExW(&wcex) == 0) {
-        write_string("RegisterClassExW returned 0.\n", true);
-        return false;
-    }
-
-    HWND hwnd = CreateWindowExW(0,
-                                L"Dummy Window",
-                                L"Dummy Window",
-                                0,
-                                CW_USEDEFAULT, CW_USEDEFAULT,
-                                CW_USEDEFAULT, CW_USEDEFAULT,
-                                null,
-                                null,
-                                hInstance,
-                                null);
-
-    if (!hwnd) {
-        write_string("CreateWindowExW returned 0.\n", true);
-        return false;
-    }
-
-    HDC dummy_dc = GetDC(hwnd);
-
-    {
-        PIXELFORMATDESCRIPTOR pixel_format = {};
-        pixel_format.nSize        = sizeof(PIXELFORMATDESCRIPTOR);
-        pixel_format.nVersion     = 1;
-        pixel_format.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-        pixel_format.iPixelType   = PFD_TYPE_RGBA;
-        pixel_format.cColorBits   = 32;
-        pixel_format.cDepthBits   = 24;
-        pixel_format.cStencilBits = 8;
-        pixel_format.iLayerType   = PFD_MAIN_PLANE;
-
-        int pixel_format_index = ChoosePixelFormat(dummy_dc, &pixel_format);
-        if (!pixel_format_index) {
-            write_string("Failed to ChoosePixelFormat.\n", true);
-            return false;
-        }
-
-        BOOL success = SetPixelFormat(dummy_dc, pixel_format_index, &pixel_format);
-        if (success == FALSE) {
-            write_string("Failed to SetPixelFormat.\n", true);
-            return false;
-        }
-    }
-
-    if (!gl_load()) return false;
-
-    // Get dummy GL context.
-    HGLRC hglrc = W32_wglCreateContext(dummy_dc);
-    if (!hglrc) {
-        write_string("Failed to wglCreateContext.\n", true);
-        return false;
-    }
-
-    if (!W32_wglMakeCurrent(dummy_dc, hglrc)) {
-        write_string("Failed to wglMakeCurrent.\n", true);
-        return false;
-    }
-
-    // Load WGL functions using wglGetProcAddress.
-    GL_LOAD_PROC(wglCreateContextAttribsARB);
-    GL_LOAD_PROC(wglChoosePixelFormatARB);
-
-    W32_wglDeleteContext(hglrc);
-    ReleaseDC(hwnd, dummy_dc);
-    DestroyWindow(hwnd);
-    UnregisterClassW(L"Dummy Window", hInstance);
-
-
-    // Create modern GL context.
-    int pixel_attrib_list[] = {
-        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
-        WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
-        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
-        WGL_DOUBLE_BUFFER_ARB,  GL_TRUE,
-        WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
-
-        // WGL_COLOR_BITS_ARB,     32,
-        // WGL_DEPTH_BITS_ARB,     24,
-        // WGL_STENCIL_BITS_ARB,   8,
-        // WGL_AUX_BUFFERS_ARB,    1,
-
-        0,  // Terminator.
-    };
-
-    HDC hdc = GetDC(window);
-
-    int pixel_format_index;
-    UINT extended_pick;
-    BOOL success = wglChoosePixelFormatARB(hdc, pixel_attrib_list, null, 1, 
-        &pixel_format_index, &extended_pick);
-    if ((success == FALSE) || (extended_pick == 0)) {
-        write_string("Failed to wglChoosePixelFormatARB.\n", true);
-        return false;
-    }
-
-    PIXELFORMATDESCRIPTOR pfd = {};
-    if (!DescribePixelFormat(hdc, pixel_format_index, 
-                             size_of(pfd), &pfd)) {
-        write_string("Failed to DescribePixelFormat.\n", true);
-        return false;
-    }
-
-    if (!SetPixelFormat(hdc, pixel_format_index, &pfd)) {
-        write_string("Failed to SetPixelFormat.\n", true);
-        return false;
-    }
-
-    int gl_attribs[] = {
-        WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
-        WGL_CONTEXT_MINOR_VERSION_ARB, 3,
-#if GL_USE_LEGACY_PROCS
-        // WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
-#else
-        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-#endif
-        0,
-    };
-
-    gl_context = wglCreateContextAttribsARB(hdc, null, gl_attribs);
-    if (!gl_context) {
-        write_string("Failed to wglCreateContextAttribsARB.\n", true);
-        return false;
-    }
-
-    if (!W32_wglMakeCurrent(hdc, gl_context)) {
-        write_string("Failed to wglMakeCurrent.\n", true);
-        return false;
-    }
-
-    // Load modern GL functions...
-    gl_load_extensions();
-    
-    return true;
-}
-
-static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
-    switch (msg) {
-        case WM_ERASEBKGND:
-            return 1;
-
-        case WM_CLOSE:
-            should_quit = true;
-            break;
-
-        case WM_SIZE:
-            back_buffer_width  = LOWORD(lparam);
-            back_buffer_height = HIWORD(lparam);
-            break;
-
-        default:
-            return DefWindowProcW(hwnd, msg, wparam, lparam);
-    }
-
-    return 0;
-}
-
 int main(void) {
-    HINSTANCE hInstance = GetModuleHandleW(null);
-
-    WNDCLASSEXW wc = {};
-    wc.cbSize = size_of(WNDCLASSEXW);
-    wc.style                = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
-    wc.cbClsExtra           = 0;
-    wc.cbWndExtra           = 0;
-    wc.hInstance            = hInstance;
-    wc.hCursor              = LoadCursorW(null, IDC_ARROW);
-    // wc.hbrBackground        = (HBRUSH)GetStockObject(WHITE_BRUSH);
-    wc.lpszMenuName         = null;
-    wc.lpszClassName        = L"WindowClassName";
-
-    wc.lpfnWndProc          = win32_main_window_callback;
-
-
-    // Register the window class.
-    if (RegisterClassExW(&wc) == 0) {
-        write_string("RegisterClassExW returned 0.\n", true);
-        return 0;
-    }
-
-    HWND hwnd = CreateWindowExW(0,
-                                L"WindowClassName",
-                                L"OpenGL",
-                                WS_OVERLAPPEDWINDOW,
-                                CW_USEDEFAULT, CW_USEDEFAULT,
-                                CW_USEDEFAULT, CW_USEDEFAULT,
-                                null,
-                                null,
-                                hInstance,
-                                null);
-
-    if (hwnd == null) {
-        write_string("CreateWindowExW returned 0.\n", true);
-        return 0;
-    }
-
-    opengl_init(hwnd);
+    OS_Window *window = init_window("OpenGL", 800, 600);
 
     const GLubyte *gl_version  = glGetString(GL_VERSION);
     const GLubyte *gl_vendor   = glGetString(GL_VENDOR);
@@ -259,15 +44,6 @@ int main(void) {
     Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
     Texture cat  = texture_load_from_file("data/textures/cat.png");
 
-    // Display the window.
-    UpdateWindow(hwnd);
-    ShowWindow(hwnd, SW_SHOW);
-
-    HDC hdc = GetDC(hwnd);
-
-
-    init_framework();
-
 
     // glDisable(GL_DEPTH_TEST);
     // Depth is mapped as near=-1 and far 1.
@@ -276,12 +52,6 @@ int main(void) {
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    RECT client_rect;
-    GetClientRect(hwnd, &client_rect);
-
-    back_buffer_width  = client_rect.right  - client_rect.left;
-    back_buffer_height = client_rect.bottom - client_rect.top;
 
     Vector2 cat_pos0 = {400, 300};
     Vector2 cat_pos1 = {500, 400};
@@ -292,26 +62,14 @@ int main(void) {
     Vector3 red_cat_p2 = {650, 400, 0};
     Vector3 red_cat_p3 = {500, 400, 0};
 
-    float64 one_over_frequency = 1.0;
-    LARGE_INTEGER large_frequency;
-    if (QueryPerformanceFrequency(&large_frequency)) {
-        one_over_frequency = 1.0 / (float64)large_frequency.QuadPart;
-    }
-
-    LARGE_INTEGER last_counter = {};
-    QueryPerformanceCounter(&last_counter);
+    float64 last_counter = 0;
 
     while (!should_quit) {
-        LARGE_INTEGER wall_counter;
-        QueryPerformanceCounter(&wall_counter);
-        float current_dt = (float)((wall_counter.QuadPart - last_counter.QuadPart) * one_over_frequency);
+        float64 wall_counter = get_current_time();
+        float current_dt = (float)(wall_counter - last_counter);
         last_counter = wall_counter;
 
-        MSG msg;
-        while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessageW(&msg);
-        }
+        update_window_events();
 
         glViewport(0, 0, back_buffer_width, back_buffer_height);
         
@@ -386,15 +144,10 @@ int main(void) {
 
         frame_flush();
 
-        BOOL ok = SwapBuffers(hdc);
-        if (ok == FALSE) {
-            write_string("Failed to SwapBuffers.\n", true);
-        }
+        swap_buffers(window);
     }
 
-    ReleaseDC(hwnd, hdc);
-    W32_wglMakeCurrent(null, null);
-    W32_wglDeleteContext(gl_context);
+    free_window_and_opengl(window);
 
     return 0;
 }

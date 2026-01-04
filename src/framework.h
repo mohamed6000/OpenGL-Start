@@ -1,6 +1,8 @@
 #ifndef FRAMEWORK_INCLUDE_H
 #define FRAMEWORK_INCLUDE_H
 
+struct OS_Window;
+
 struct Vector2 {
     float x, y;
 };
@@ -20,9 +22,25 @@ struct Texture {
     int channels;
 };
 
+struct Key_State {
+    bool is_down;
+    bool was_down;
+};
+
+extern Key_State key_left;
+extern Key_State key_right;
+extern Key_State key_fire;
+extern Key_State key_esc;
+
 extern bool should_quit;
 extern int back_buffer_width;
 extern int back_buffer_height;
+
+OS_Window *init_window(const char *title, int w, int h);
+float64 get_current_time(void);
+void free_window_and_opengl(OS_Window *w);
+void update_window_events(void);
+void swap_buffers(OS_Window *w);
 
 void init_framework(void);
 void frame_flush(void);

@@ -1,9 +1,38 @@
 #include "framework.h"
 
+#if OS_WINDOWS
+#define UNICODE
+#define _UNICODE
+
+#define WIN32_LEAN_AND_MEAN
+#define VC_EXTRALEAN
+#include <windows.h>
+
+struct OS_Window {
+    HWND hwnd;
+};
+#endif
+
+#if OS_LINUX
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <dlfcn.h>
+#include <time.h>
+
+struct OS_Window {
+    Window window;
+};
+#endif
+
 // Globals.
 bool should_quit = false;
 int back_buffer_width;
 int back_buffer_height;
+
+Key_State key_left;
+Key_State key_right;
+Key_State key_fire;
+Key_State key_esc;
 
 // Internal.
 static GLuint vbo;
@@ -400,3 +429,321 @@ Vector2 rotate_z(Vector2 v, Vector2 c, float theta) {
 
     return result;
 }
+
+
+
+
+#if OS_WINDOWS
+
+#if COMPILER_CL
+#pragma comment(lib, "Gdi32.lib")
+#endif
+
+
+HGLRC gl_context;
+
+bool opengl_init(HWND window) {
+    // Create dummy window.
+    HINSTANCE hInstance = GetModuleHandleW(null);
+
+    WNDCLASSEXW wcex = {};
+    wcex.cbSize = size_of(WNDCLASSEXW);
+    wcex.hInstance     = hInstance;
+    wcex.lpszClassName = L"Dummy Window";
+    wcex.lpfnWndProc   = DefWindowProcW;
+
+    // Register the window class.
+    if (RegisterClassExW(&wcex) == 0) {
+        write_string("RegisterClassExW returned 0.\n", true);
+        return false;
+    }
+
+    HWND hwnd = CreateWindowExW(0,
+                                L"Dummy Window",
+                                L"Dummy Window",
+                                0,
+                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                null,
+                                null,
+                                hInstance,
+                                null);
+
+    if (!hwnd) {
+        write_string("CreateWindowExW returned 0.\n", true);
+        return false;
+    }
+
+    HDC dummy_dc = GetDC(hwnd);
+
+    {
+        PIXELFORMATDESCRIPTOR pixel_format = {};
+        pixel_format.nSize        = sizeof(PIXELFORMATDESCRIPTOR);
+        pixel_format.nVersion     = 1;
+        pixel_format.dwFlags      = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+        pixel_format.iPixelType   = PFD_TYPE_RGBA;
+        pixel_format.cColorBits   = 32;
+        pixel_format.cDepthBits   = 24;
+        pixel_format.cStencilBits = 8;
+        pixel_format.iLayerType   = PFD_MAIN_PLANE;
+
+        int pixel_format_index = ChoosePixelFormat(dummy_dc, &pixel_format);
+        if (!pixel_format_index) {
+            write_string("Failed to ChoosePixelFormat.\n", true);
+            return false;
+        }
+
+        BOOL success = SetPixelFormat(dummy_dc, pixel_format_index, &pixel_format);
+        if (success == FALSE) {
+            write_string("Failed to SetPixelFormat.\n", true);
+            return false;
+        }
+    }
+
+    if (!gl_load()) return false;
+
+    // Get dummy GL context.
+    HGLRC hglrc = W32_wglCreateContext(dummy_dc);
+    if (!hglrc) {
+        write_string("Failed to wglCreateContext.\n", true);
+        return false;
+    }
+
+    if (!W32_wglMakeCurrent(dummy_dc, hglrc)) {
+        write_string("Failed to wglMakeCurrent.\n", true);
+        return false;
+    }
+
+    // Load WGL functions using wglGetProcAddress.
+    GL_LOAD_PROC(wglCreateContextAttribsARB);
+    GL_LOAD_PROC(wglChoosePixelFormatARB);
+
+    W32_wglDeleteContext(hglrc);
+    ReleaseDC(hwnd, dummy_dc);
+    DestroyWindow(hwnd);
+    UnregisterClassW(L"Dummy Window", hInstance);
+
+
+    // Create modern GL context.
+    int pixel_attrib_list[] = {
+        WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+        WGL_ACCELERATION_ARB,   WGL_FULL_ACCELERATION_ARB,
+        WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+        WGL_DOUBLE_BUFFER_ARB,  GL_TRUE,
+        WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
+
+        // WGL_COLOR_BITS_ARB,     32,
+        // WGL_DEPTH_BITS_ARB,     24,
+        // WGL_STENCIL_BITS_ARB,   8,
+        // WGL_AUX_BUFFERS_ARB,    1,
+
+        0,  // Terminator.
+    };
+
+    HDC hdc = GetDC(window);
+
+    int pixel_format_index;
+    UINT extended_pick;
+    BOOL success = wglChoosePixelFormatARB(hdc, pixel_attrib_list, null, 1, 
+        &pixel_format_index, &extended_pick);
+    if ((success == FALSE) || (extended_pick == 0)) {
+        write_string("Failed to wglChoosePixelFormatARB.\n", true);
+        return false;
+    }
+
+    PIXELFORMATDESCRIPTOR pfd = {};
+    if (!DescribePixelFormat(hdc, pixel_format_index, 
+                             size_of(pfd), &pfd)) {
+        write_string("Failed to DescribePixelFormat.\n", true);
+        return false;
+    }
+
+    if (!SetPixelFormat(hdc, pixel_format_index, &pfd)) {
+        write_string("Failed to SetPixelFormat.\n", true);
+        return false;
+    }
+
+    int gl_attribs[] = {
+        WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+        WGL_CONTEXT_MINOR_VERSION_ARB, 3,
+#if GL_USE_LEGACY_PROCS
+        // WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB,
+#else
+        WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+#endif
+        0,
+    };
+
+    gl_context = wglCreateContextAttribsARB(hdc, null, gl_attribs);
+    if (!gl_context) {
+        write_string("Failed to wglCreateContextAttribsARB.\n", true);
+        return false;
+    }
+
+    if (!W32_wglMakeCurrent(hdc, gl_context)) {
+        write_string("Failed to wglMakeCurrent.\n", true);
+        return false;
+    }
+
+    // Load modern GL functions...
+    gl_load_extensions();
+    
+    return true;
+}
+
+static LRESULT CALLBACK win32_main_window_callback(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+    switch (msg) {
+        case WM_ERASEBKGND:
+            return 1;
+
+        case WM_CLOSE:
+            should_quit = true;
+            break;
+
+        case WM_SIZE:
+            back_buffer_width  = LOWORD(lparam);
+            back_buffer_height = HIWORD(lparam);
+            break;
+
+        case WM_SYSKEYDOWN:
+        case WM_KEYDOWN:
+        {
+            // bool was_down = ((s32)lparam & 0x40000000) != 0;
+            bool is_down  = true;
+            
+            if (wparam == VK_LEFT) {
+                key_left.is_down  = is_down;
+            } else if (wparam == VK_RIGHT) {
+                key_right.is_down  = is_down;
+            } else if (wparam == VK_SPACE) {
+                key_fire.is_down  = is_down;
+            } else if (wparam == VK_ESCAPE) {
+                key_esc.is_down  = is_down;
+            }
+        } break;
+
+        case WM_SYSKEYUP:
+        case WM_KEYUP:
+        {
+            bool is_down  = false;
+            
+            if (wparam == VK_LEFT) {
+                key_left.is_down = is_down;
+            } else if (wparam == VK_RIGHT) {
+                key_right.is_down = is_down;
+            } else if (wparam == VK_SPACE) {
+                key_fire.is_down = is_down;
+            } else if (wparam == VK_ESCAPE) {
+                key_esc.is_down = is_down;
+            }
+        } break;
+
+        default:
+            return DefWindowProcW(hwnd, msg, wparam, lparam);
+    }
+
+    return 0;
+}
+
+static float64 one_over_frequency = 1.0;
+
+OS_Window *init_window(const char *title, int w, int h) {
+    OS_Window *result = New(OS_Window);
+
+    HINSTANCE hInstance = GetModuleHandleW(null);
+
+    WNDCLASSEXW wc = {};
+    wc.cbSize = size_of(WNDCLASSEXW);
+    wc.style                = CS_HREDRAW | CS_VREDRAW | CS_OWNDC;
+    wc.cbClsExtra           = 0;
+    wc.cbWndExtra           = 0;
+    wc.hInstance            = hInstance;
+    wc.hCursor              = LoadCursorW(null, IDC_ARROW);
+    // wc.hbrBackground        = (HBRUSH)GetStockObject(WHITE_BRUSH);
+    wc.lpszMenuName         = null;
+    wc.lpszClassName        = L"WindowClassName";
+
+    wc.lpfnWndProc          = win32_main_window_callback;
+
+
+    // Register the window class.
+    if (RegisterClassExW(&wc) == 0) {
+        write_string("RegisterClassExW returned 0.\n", true);
+        return 0;
+    }
+
+    RECT rect = {};
+    rect.right = w;
+    rect.bottom = h;
+    AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, 0);
+
+    WCHAR *w32_utf8_to_wide(const char *s, Allocator allocator);
+    WCHAR *title_wide = w32_utf8_to_wide(title, temporary_allocator);
+
+    HWND hwnd = CreateWindowExW(0,
+                                L"WindowClassName",
+                                title_wide,
+                                WS_OVERLAPPEDWINDOW,
+                                CW_USEDEFAULT, CW_USEDEFAULT,
+                                rect.right-rect.left, rect.bottom-rect.left,
+                                null,
+                                null,
+                                hInstance,
+                                null);
+
+    if (hwnd == null) {
+        write_string("CreateWindowExW returned 0.\n", true);
+        return 0;
+    }
+
+    result->hwnd = hwnd;
+
+    opengl_init(hwnd);
+    
+    init_framework();
+
+    // Display the window.
+    UpdateWindow(hwnd);
+    ShowWindow(hwnd, SW_SHOW);
+
+    LARGE_INTEGER large_frequency;
+    if (QueryPerformanceFrequency(&large_frequency)) {
+        one_over_frequency = 1.0 / (float64)large_frequency.QuadPart;
+    }
+
+    back_buffer_width = w;
+    back_buffer_height = h;
+
+    return result;
+}
+
+float64 get_current_time(void) {
+    LARGE_INTEGER wall_counter;
+    QueryPerformanceCounter(&wall_counter);
+    return wall_counter.QuadPart * one_over_frequency;
+}
+
+void free_window_and_opengl(OS_Window *w) {
+    UNUSED(w->hwnd);
+    W32_wglMakeCurrent(null, null);
+    W32_wglDeleteContext(gl_context);
+    MemFree(w);
+}
+
+void update_window_events(void) {
+    MSG msg;
+    while (PeekMessageW(&msg, null, 0, 0, PM_REMOVE)) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+}
+
+void swap_buffers(OS_Window *w) {
+    HDC hdc = GetDC(w->hwnd);
+    BOOL ok = SwapBuffers(hdc);
+    if (ok == FALSE) {
+        write_string("Failed to SwapBuffers.\n", true);
+    }
+}
+
+#endif
