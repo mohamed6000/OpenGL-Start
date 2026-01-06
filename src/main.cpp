@@ -23,6 +23,9 @@ int main(void) {
     Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
     Texture cat  = texture_load_from_file("data/textures/cat.png");
 
+    u8 pixel_data[4] = {0xFF,0xFF,0xFF,0xFF};
+    Texture white = texture_load_from_memory(pixel_data, 1, 1, 4);
+
     Vector2 cat_pos0 = {400, 300};
     Vector2 cat_pos1 = {500, 400};
     float cat_rot_angle = 0;
