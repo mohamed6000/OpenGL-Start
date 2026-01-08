@@ -25,6 +25,7 @@ int main(void) {
 
     u8 pixel_data[4] = {0xFF,0xFF,0xFF,0xFF};
     Texture white = texture_load_from_memory(pixel_data, 1, 1, 4);
+    UNUSED(white);
 
     Vector2 cat_pos0 = {400, 300};
     Vector2 cat_pos1 = {500, 400};
