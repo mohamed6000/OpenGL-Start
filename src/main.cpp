@@ -20,7 +20,7 @@ int main(void) {
     OS_Window *window = init_window("OpenGL", 800, 600);
 
     Simple_Font font = {};
-    font_load_from_file("c:/windows/fonts/arialbd.ttf", 24, &font);
+    font_load_from_file("c:/windows/fonts/arialbd.ttf", 64, &font);
 
     Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
     Texture cat  = texture_load_from_file("data/textures/cat.png");
@@ -121,6 +121,7 @@ int main(void) {
         // draw_quad(0, 0, 512, 512, Vector4{1,1,1,1});
         draw_text(&font, "Hello friend!", 1, -1, Vector4{0,0,0,1});
         draw_text(&font, "Hello friend!", 0, 0, Vector4{1,1,1,1});
+        draw_text(&font, "abcdefghijklmnopqrstuvwxyz", 0, 100, Vector4{1,1,1,1});
 
         frame_flush();
 

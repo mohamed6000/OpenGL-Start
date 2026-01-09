@@ -591,8 +591,8 @@ void draw_text(Simple_Font *font, const char *text, int x, int y, Vector4 color)
         if (*text >= 32 && *text < 128) {
             Glyph_Data *glyph = &font->glyphs[*text];
 
-            float x0 = (float)(x);
-            float y0 = (float)(y);
+            float x0 = (float)(x + glyph->x_offset0);
+            float y0 = (float)(y - glyph->y_offset1);
 
             draw_quad(x0, y0,
                       x0 + glyph->width, y0 + glyph->height,
