@@ -494,6 +494,10 @@ Vector2 rotate_z(Vector2 v, Vector2 c, float theta) {
     return result;
 }
 
+GLuint get_shader(void) {
+    return shader_program;
+}
+
 
 
 

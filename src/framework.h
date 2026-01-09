@@ -73,4 +73,6 @@ void draw_quad(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3,
 
 Vector2 rotate_z(Vector2 v, Vector2 c, float theta);
 
+GLuint get_shader(void);
+
 #endif  // FRAMEWORK_INCLUDE_H
