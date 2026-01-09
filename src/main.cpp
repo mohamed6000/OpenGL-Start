@@ -1,9 +1,6 @@
 #include "general.h"
 #include "framework.h"
 
-#include "stb_image.h"
-#include "stb_truetype.h"
-
 #include <math.h>
 
 
@@ -18,61 +15,12 @@ extern "C" {
     // SHARED_EXPORT int AmdPowerXpressRequestHighPerformance = 1;
 }
 
-unsigned char ttf_buffer[1<<20];
-unsigned char temp_bitmap[512*512];
-
-stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
-GLuint ftex;
-
-void my_stbtt_initfont(void)
-{
-    fread(ttf_buffer, 1, 1<<20, fopen("c:/windows/fonts/times.ttf", "rb"));
-    stbtt_BakeFontBitmap(ttf_buffer,0, 32.0, temp_bitmap,512,512, 32,96, cdata); // no guarantee this fits!
-    // can free ttf_buffer at this point
-    glEnable(GL_TEXTURE_2D);
-    glGenTextures(1, &ftex);
-    glBindTexture(GL_TEXTURE_2D, ftex);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, 512,512, 0, GL_RED, GL_UNSIGNED_BYTE, temp_bitmap);
-    // can free temp_bitmap at this point
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_RED);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_RED);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_RED);
-}
-
-void my_stbtt_print(float x, float y, char *text)
-{
-    frame_flush();
-
-    // assume orthographic projection with units = screen pixels, origin at top left
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    GLint texture_handle = glGetUniformLocation(get_shader(), "texture_map");
-    glUniform1i(texture_handle, 0);
-    
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, ftex);
-
-    while (*text) {
-        if (*text >= 32 && *text < 128) {
-            stbtt_aligned_quad q;
-            stbtt_GetBakedQuad(cdata, 512,512, *text-32, &x,&y,&q,1);//1=opengl & d3d10+,0=d3d9
-            draw_quad(q.x0, q.y0, q.x1, q.y1,
-                      q.s0, q.t0, q.s1, q.t1,
-                      Vector4{1,1,1,1});
-        }
-        ++text;
-    }
-}
-
 
 int main(void) {
     OS_Window *window = init_window("OpenGL", 800, 600);
 
-    my_stbtt_initfont();
+    Simple_Font font = {};
+    font_load_from_file("c:/windows/fonts/arialbd.ttf", 64, &font);
 
     Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
     Texture cat  = texture_load_from_file("data/textures/cat.png");
@@ -169,7 +117,9 @@ int main(void) {
                   Vector4{1,1,1,1});
 
 
-        my_stbtt_print(100, 100, "Hello friend!");
+        // set_texture(&font.texture);
+        // draw_quad(0, 0, 512, 512, Vector4{1,1,1,1});
+        draw_text(&font, "Hello friend!", 100, 100);
 
         frame_flush();
 
@@ -191,11 +141,5 @@ int main(void) {
 
 #define GENERAL_IMPLEMENTATION
 #include "general.h"
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
 
 #include "framework.cpp"
