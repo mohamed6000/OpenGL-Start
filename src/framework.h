@@ -89,6 +89,6 @@ struct Simple_Font {
     Glyph_Data glyphs[128];
 };
 bool font_load_from_file(const char *file_path, s32 font_size_in_pixels, Simple_Font *font);
-void draw_text(Simple_Font *font, const char *text, int x, int y);
+void draw_text(Simple_Font *font, const char *text, int x, int y, Vector4 color);
 
 #endif  // FRAMEWORK_INCLUDE_H

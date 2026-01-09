@@ -584,7 +584,7 @@ bool font_load_from_file(const char *file_path, s32 font_size_in_pixels, Simple_
     return true;
 }
 
-void draw_text(Simple_Font *font, const char *text, int x, int y) {
+void draw_text(Simple_Font *font, const char *text, int x, int y, Vector4 color) {
     set_texture(&font->texture);
 
     while (*text) {
@@ -598,7 +598,7 @@ void draw_text(Simple_Font *font, const char *text, int x, int y) {
                       x0 + glyph->width, y0 + glyph->height,
                       glyph->u0, glyph->v0,
                       glyph->u1, glyph->v1,
-                      Vector4{1,1,1,1});
+                      color);
 
             x += (int)glyph->x_advance;
         }
