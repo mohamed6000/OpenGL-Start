@@ -588,8 +588,9 @@ void draw_text(Simple_Font *font, const char *text, int x, int y, Vector4 color)
     set_texture(&font->texture);
 
     while (*text) {
-        if (*text >= 32 && *text < 128) {
-            Glyph_Data *glyph = &font->glyphs[*text];
+        int codepoint = *text;
+        if (codepoint >= 32 && codepoint < 128) {
+            Glyph_Data *glyph = &font->glyphs[codepoint];
 
             float x0 = (float)(x + glyph->x_offset0);
             float y0 = (float)(y - glyph->y_offset1);

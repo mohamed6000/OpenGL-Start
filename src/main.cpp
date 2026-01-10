@@ -20,7 +20,11 @@ int main(void) {
     OS_Window *window = init_window("OpenGL", 800, 600);
 
     Simple_Font font = {};
+#if OS_WINDOWS
     font_load_from_file("c:/windows/fonts/arialbd.ttf", 64, &font);
+#else
+    font_load_from_file("/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf", 64, &font);
+#endif
 
     Texture test = texture_load_from_file("data/textures/Texturtest planar.png");
     Texture cat  = texture_load_from_file("data/textures/cat.png");
